@@ -7,6 +7,8 @@ import (
 	"go/token"
 	"log"
 	"path/filepath"
+
+	"gitlab.plaso.cn/webgen/astinfo"
 )
 
 func main() {
@@ -24,7 +26,8 @@ func main() {
 			fmt.Println(filename)
 			for i := 0; i < len(f.Decls); i++ {
 				if function, ok := f.Decls[i].(*ast.FuncDecl); ok {
-					log.Println(function.Name.Name)
+					method1 := astinfo.Method{}
+					method1.InitFromFunc(function)
 				}
 			}
 		}
@@ -32,8 +35,4 @@ func main() {
 	}
 	// 打印语法树
 
-}
-
-func dealFunction(f *ast.FuncDecl) {
-	fmt.Println(f.Name.Name)
 }

@@ -1,3 +1,3 @@
-module gitlab.plaso.cn/biz_show/prototype
+module gitlab.plaso.cn/webgen
 
 go 1.21.3
