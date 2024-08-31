@@ -5,12 +5,18 @@ import (
 	"strings"
 )
 
+type Struct struct {
+	Name      string
+	ImportUrl string
+	Methods   []*Method
+}
 type Method struct {
-	Name      string // method name
-	Params    string // method params （input）
-	Results   string // method results（output)
-	Url       string // method url from comments;
-	HasCreate bool   // has create method 返回值同Params
+	Receiver  *Struct
+	Name      string  // method name
+	Params    *Struct // method params （input）
+	Results   *Struct // method results（output)
+	Url       string  // method url from comments;
+	HasCreate bool    // has create method 返回值同Params
 }
 
 func (method *Method) InitFromFunc(f *ast.FuncDecl) {
@@ -22,13 +28,11 @@ func (method *Method) initFromComment(f *ast.FuncDecl) {
 		return
 	}
 	for _, comment := range f.Doc.List {
-		if comment.Text == "" {
-			continue
-		}
 		text := strings.Trim(comment.Text, "/ \t") // 去掉前后的空格和斜杠
 		text = strings.ReplaceAll(text, "\t ", "")
 		if strings.HasPrefix(text, "@url=") {
-			method.Url = text[5:]
+			method.Url = strings.Trim(text[5:], "\"'")
+			break
 		}
 	}
 }
