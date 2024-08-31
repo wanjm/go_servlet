@@ -9,6 +9,7 @@ type Struct struct {
 	Name      string
 	ImportUrl string
 	Methods   []*Method
+	Import    *Import
 }
 type Method struct {
 	Receiver  *Struct
