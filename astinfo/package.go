@@ -78,7 +78,9 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 func (pkg *Package) GenerateCode() string {
 	var sb strings.Builder
 	for _, class := range pkg.StructMap {
-		sb.WriteString(class.GenerateCode())
+		if len(class.ServletMethods) > 0 {
+			sb.WriteString(class.GenerateCode())
+		}
 	}
 	return sb.String()
 }
