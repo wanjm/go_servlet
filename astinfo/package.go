@@ -21,10 +21,13 @@ type Import struct {
 	Path string
 }
 
-func CreatePackage(project *Project) *Package {
+func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:   project,
 		StructMap: make(map[string]*Struct),
+		ModInfo: Import{
+			Path: modPath,
+		},
 	}
 }
 
@@ -40,19 +43,24 @@ func (pkg *Package) Parse(path string) {
 	for packName, pack := range packageMap {
 		fmt.Print(packName, "\n")
 		for filename, f := range pack.Files {
-			pkg.parseMod(f, filename)
-			for i := 0; i < len(f.Decls); i++ {
-				if function, ok := f.Decls[i].(*ast.FuncDecl); ok {
-					if function.Recv == nil {
-						pkg.parseFunction(function)
-					} else {
-						pkg.parseMethod(function)
-					}
-				}
+			pkg.parseFile(f, filename)
+		}
+	}
+}
+
+func (pkg *Package) parseFile(f *ast.File, filename string) {
+	pkg.parseMod(f, filename)
+	for i := 0; i < len(f.Decls); i++ {
+		if function, ok := f.Decls[i].(*ast.FuncDecl); ok {
+			if function.Recv == nil {
+				pkg.parseFunction(function)
+			} else {
+				pkg.parseMethod(function)
 			}
 		}
 	}
 }
+
 func (pkg *Package) parseMod(file *ast.File, fileName string) {
 	if len(pkg.ModInfo.Name) == 0 {
 		pkg.ModInfo.Name = file.Name.Name

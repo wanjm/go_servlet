@@ -14,7 +14,7 @@ func main() {
 		log.Printf("open %s failed with %s", path, err.Error())
 		return
 	}
-	var project = astinfo.Project{Path: path}
+	var project = astinfo.CreateProject(path)
 	project.Parse()
 	fmt.Println(project.GenerateCode())
 }

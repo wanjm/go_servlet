@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,17 +11,42 @@ import (
 type Project struct {
 	Path    string //xian
 	Mod     string
-	Package []*Package
+	Package map[string]*Package
 }
 
 func (project *Project) Parse() {
 	//读取go.mod
+	project.Mod = "gitlab.plaso.cn/bisshow"
 	project.parseDir(project.Path)
 }
+
+func CreateProject(path string) Project {
+	return Project{
+		Path:    path,
+		Package: make(map[string]*Package),
+	}
+}
+
+func (project *Project) getPackage(modPath string, create bool) *Package {
+	pkg := project.Package[modPath]
+	if pkg == nil && create {
+		pkg = CreatePackage(project, filepath.Join(project.Mod))
+		project.Package[pkg.ModInfo.Path] = pkg
+	}
+	return pkg
+}
+
+func (project *Project) getModePath(pathStr string) string {
+	pathLen := len(project.Path)
+	if !strings.HasPrefix(pathStr, project.Path) {
+		log.Fatalf("pack path %s is not in current Dir %s\n", pathStr, project.Path)
+	}
+	return pathStr[pathLen:]
+}
+
 func (project *Project) parseDir(pathStr string) {
-	var pack = CreatePackage(project)
-	pack.Parse(pathStr)
-	project.Package = append(project.Package, pack)
+	pkg := project.getPackage(project.getModePath(pathStr), true)
+	pkg.Parse(pathStr)
 	list, err := os.ReadDir(pathStr)
 	if err != nil {
 		fmt.Printf("read %s failed skip parse\n", pathStr)
