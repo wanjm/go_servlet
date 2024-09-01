@@ -11,7 +11,7 @@ import (
 type Project struct {
 	Path    string //xian
 	Mod     string
-	Package map[string]*Package
+	Package map[string]*Package //key是mod的路径
 }
 
 func (project *Project) Parse() {

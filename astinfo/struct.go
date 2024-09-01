@@ -9,12 +9,26 @@ type Struct struct {
 	Name           string
 	ImportUrl      string
 	ServletMethods []*Method           //记录路由代码
-	CreatorMethods map[*Struct]*Method //纪录构建默认参数的代码
+	CreatorMethods map[*Struct]*Method //纪录构建默认参数的代码, key是构建的struct
 	Import         *Import
 	Package        *Package
+	structFound    bool
 
 	// 自动生成代码相关参数
 	variableName string
+}
+
+type StructType struct {
+	Struct    *Struct
+	IsPointer bool
+}
+
+func CreateStruct(name string, pkg *Package) *Struct {
+	return &Struct{
+		Name:           name,
+		Package:        pkg,
+		CreatorMethods: make(map[*Struct]*Method),
+	}
 }
 
 func (class *Struct) GenerateCode() string {
