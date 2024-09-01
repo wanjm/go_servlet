@@ -10,7 +10,7 @@ import (
 )
 
 type Package struct {
-	Struct    []*Struct
+	// Struct    []*Struct
 	ModInfo   Import
 	Project   *Project
 	StructMap map[string]*Struct
@@ -77,7 +77,7 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 
 func (pkg *Package) GenerateCode() string {
 	var sb strings.Builder
-	for _, class := range pkg.Struct {
+	for _, class := range pkg.StructMap {
 		sb.WriteString(class.GenerateCode())
 	}
 	return sb.String()
