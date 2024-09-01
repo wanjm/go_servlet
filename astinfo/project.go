@@ -30,8 +30,9 @@ func CreateProject(path string) Project {
 func (project *Project) getPackage(modPath string, create bool) *Package {
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
-		pkg = CreatePackage(project, filepath.Join(project.Mod))
-		project.Package[pkg.ModInfo.Path] = pkg
+		pkg = CreatePackage(project, modPath)
+		fmt.Printf("create package %s\n", modPath)
+		project.Package[modPath] = pkg
 	}
 	return pkg
 }
@@ -41,7 +42,7 @@ func (project *Project) getModePath(pathStr string) string {
 	if !strings.HasPrefix(pathStr, project.Path) {
 		log.Fatalf("pack path %s is not in current Dir %s\n", pathStr, project.Path)
 	}
-	return pathStr[pathLen:]
+	return filepath.Join(project.Mod, pathStr[pathLen:])
 }
 
 func (project *Project) parseDir(pathStr string) {
@@ -53,7 +54,7 @@ func (project *Project) parseDir(pathStr string) {
 		return
 	}
 	for _, d := range list {
-		if d.IsDir() && d.Name() != "gen" {
+		if d.IsDir() && d.Name() != "gen" && !strings.HasPrefix(d.Name(), ".") {
 			project.parseDir(filepath.Join(pathStr, d.Name()))
 		}
 	}
