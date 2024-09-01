@@ -56,14 +56,18 @@ func (class *Struct) addServlet(method *Method) {
 	class.ServletMethods = append(class.ServletMethods, method)
 }
 
+// creator是用户提供的创建某个对象的方法，主要是用于设置请求的默认值；主要用于构建servlet的request参数
 func (class *Struct) addCreator(childClass *Struct, method *Method) {
 	class.CreatorMethods[childClass] = method
 }
 
+// 一个servlet的request对象，可以直接构造空方法，也可以调用该类型提供的creator方法；
 func (class *Struct) GetCreatorCode4Struct(childClass *Struct) string {
 	if method, ok := class.CreatorMethods[childClass]; ok {
-		return method.Name + "()\n"
+		// 调用cratetor方法，则为该对象的变量+creator方法
+		return class.variableName + "." + method.Name + "()\n"
 	} else {
+		// 直接构建空对象
 		return childClass.generateObject()
 	}
 }
