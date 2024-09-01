@@ -31,10 +31,11 @@ func CreateStruct(name string, pkg *Package) *Struct {
 	}
 }
 
+// 注意跟变量注入区分开来
 func (class *Struct) GenerateCode() string {
 	class.variableName = class.Package.ModInfo.Name + class.Name
 	var sb strings.Builder
-	sb.WriteString(class.generateObject())
+	sb.WriteString(class.variableName + ":=" + class.generateObject())
 	for _, servlet := range class.ServletMethods {
 		sb.WriteString(servlet.GenerateCode())
 	}
@@ -47,8 +48,8 @@ func (class *Struct) GenerateCode() string {
 // 是否生成注入的代码，需要考虑 上述1，2的注入方法是否有区别
 func (class *Struct) generateObject() string {
 	// 变量名的规则是 ${modName}${struct.Name}
-	codeFmt := "%s:= %s.%s{}\n"
-	return fmt.Sprintf(codeFmt, class.variableName, class.Package.ModInfo.Name, class.Name)
+	codeFmt := "%s.%s{}\n"
+	return fmt.Sprintf(codeFmt, class.Package.ModInfo.Name, class.Name)
 }
 
 func (class *Struct) addServlet(method *Method) {
