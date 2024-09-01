@@ -14,7 +14,7 @@ type Struct struct {
 	Package        *Package
 	structFound    bool
 
-	// 自动生成代码相关参数
+	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
 	variableName string
 }
 
