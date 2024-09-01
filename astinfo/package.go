@@ -41,7 +41,7 @@ func (pkg *Package) Parse(path string) {
 		return
 	}
 	for packName, pack := range packageMap {
-		fmt.Print(packName, "\n")
+		fmt.Printf("begin parse %s with %s\n", packName, path)
 		for filename, f := range pack.Files {
 			pkg.parseMod(f, filename)
 			gofile := createGoFile(f, pkg, filename)

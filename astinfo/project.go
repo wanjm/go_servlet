@@ -53,7 +53,7 @@ func (project *Project) parseDir(pathStr string) {
 		return
 	}
 	for _, d := range list {
-		if d.IsDir() {
+		if d.IsDir() && d.Name() != "gen" {
 			project.parseDir(filepath.Join(pathStr, d.Name()))
 		}
 	}
