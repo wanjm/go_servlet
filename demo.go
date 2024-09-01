@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"path/filepath"
 
@@ -15,4 +16,5 @@ func main() {
 	}
 	var project = astinfo.Project{Path: path}
 	project.Parse()
+	fmt.Println(project.GenerateCode())
 }

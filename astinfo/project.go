@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Project struct {
@@ -17,9 +18,9 @@ func (project *Project) Parse() {
 	project.parseDir(project.Path)
 }
 func (project *Project) parseDir(pathStr string) {
-	var pack = Package{Project: project}
+	var pack = CreatePackage(project)
 	pack.Parse(pathStr)
-	project.Package = append(project.Package, &pack)
+	project.Package = append(project.Package, pack)
 	list, err := os.ReadDir(pathStr)
 	if err != nil {
 		fmt.Printf("read %s failed skip parse\n", pathStr)
@@ -30,4 +31,17 @@ func (project *Project) parseDir(pathStr string) {
 			project.parseDir(filepath.Join(pathStr, d.Name()))
 		}
 	}
+}
+
+func (project *Project) GenerateCode() string {
+	var sb strings.Builder
+	//生成函数明
+	sb.WriteString("func InitRoute(router *gin.Engine) {\n")
+	//生成原始初始化对象，如数据库等；
+	//生成servlet
+	for _, pkg := range project.Package {
+		sb.WriteString(pkg.GenerateCode())
+	}
+	sb.WriteString("}\n")
+	return sb.String()
 }
