@@ -30,8 +30,8 @@ func CreateProject(path string) Project {
 func (project *Project) getPackage(modPath string, create bool) *Package {
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
-		pkg = CreatePackage(project, modPath)
 		fmt.Printf("create package %s\n", modPath)
+		pkg = CreatePackage(project, modPath)
 		project.Package[modPath] = pkg
 	}
 	return pkg
@@ -46,6 +46,7 @@ func (project *Project) getModePath(pathStr string) string {
 }
 
 func (project *Project) parseDir(pathStr string) {
+	fmt.Printf("parse %s\n", pathStr)
 	pkg := project.getPackage(project.getModePath(pathStr), true)
 	pkg.Parse(pathStr)
 	list, err := os.ReadDir(pathStr)

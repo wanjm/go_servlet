@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"log"
 	"path/filepath"
+	"strings"
 )
 
 // 针对一个真正的go文件，这个类时临时对象，仅仅是解析过程中存在
@@ -49,12 +50,13 @@ func (goFile *GoFile) parseImport() {
 	astFile := goFile.file
 	for _, importSpec := range astFile.Imports {
 		var name string
+		pathValue := strings.Trim(importSpec.Path.Value, "\"")
 		if importSpec.Name != nil {
 			name = importSpec.Name.Name
 		} else {
-			name = filepath.Base(importSpec.Path.Value)
+			name = filepath.Base(pathValue)
 		}
-		goFile.Imports[name] = importSpec.Path.Value
+		goFile.Imports[name] = pathValue
 	}
 }
 

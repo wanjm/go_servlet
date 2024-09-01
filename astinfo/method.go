@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -94,6 +95,10 @@ func (method *Method) parseFieldType(field *ast.Field) *StructType {
 	modelName := selectorExpr.X.(*ast.Ident).Name
 	structName := selectorExpr.Sel.Name
 	pkgPath := method.goFile.Imports[modelName]
+	if len(pkgPath) == 0 {
+		fmt.Printf("failed to find package %s in %s::%s\n", modelName, method.Receiver.Name, method.Name)
+		os.Exit(1)
+	}
 	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
 	struct1 := pkg.getStruct(structName, true)
 	return &StructType{
