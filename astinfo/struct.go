@@ -36,7 +36,7 @@ func (class *Struct) GenerateCode() string {
 	var sb strings.Builder
 	sb.WriteString(class.generateObject())
 	for _, servlet := range class.ServletMethods {
-		sb.WriteString(servlet.Receiver.GenerateCode())
+		sb.WriteString(servlet.GenerateCode())
 	}
 	return sb.String()
 }
