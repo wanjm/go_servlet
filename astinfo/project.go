@@ -9,9 +9,9 @@ import (
 )
 
 type Project struct {
-	Path    string //xian
-	Mod     string
-	Package map[string]*Package //key是mod的路径
+	Path    string              // 项目所在的目录
+	Mod     string              // 该项目的mode名字
+	Package map[string]*Package //key是mod的全路径
 }
 
 func (project *Project) Parse() {
@@ -37,6 +37,7 @@ func (project *Project) getPackage(modPath string, create bool) *Package {
 	return pkg
 }
 
+// 根据dir全路径，返回mod全路径
 func (project *Project) getModePath(pathStr string) string {
 	pathLen := len(project.Path)
 	if !strings.HasPrefix(pathStr, project.Path) {
@@ -55,6 +56,7 @@ func (project *Project) parseDir(pathStr string) {
 		return
 	}
 	for _, d := range list {
+		// 后续添加配置，跳过扫描路径
 		if d.IsDir() && d.Name() != "gen" && !strings.HasPrefix(d.Name(), ".") {
 			project.parseDir(filepath.Join(pathStr, d.Name()))
 		}

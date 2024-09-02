@@ -11,9 +11,11 @@ import (
 
 type Package struct {
 	// Struct    []*Struct
-	ModInfo   Import
+	// ModInfo   Import
+	modName   string //本package的mode name；基本没有什么用，本程序不检查；
+	modPath   string //本package的mode path全路径
 	Project   *Project
-	StructMap map[string]*Struct
+	StructMap map[string]*Struct //key是StructName
 }
 
 type Import struct {
@@ -25,9 +27,7 @@ func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:   project,
 		StructMap: make(map[string]*Struct),
-		ModInfo: Import{
-			Path: modPath,
-		},
+		modPath:   modPath,
 	}
 }
 
@@ -51,12 +51,12 @@ func (pkg *Package) Parse(path string) {
 }
 
 func (pkg *Package) parseMod(file *ast.File, fileName string) {
-	if len(pkg.ModInfo.Name) == 0 {
-		pkg.ModInfo.Name = file.Name.Name
+	if len(pkg.modName) == 0 {
+		pkg.modName = file.Name.Name
 	} else {
 		// 多个文件的mod应该相同，否则报错
-		if pkg.ModInfo.Name != file.Name.Name {
-			log.Fatalf("mod of %s is %s which should be %s\n", fileName, file.Name.Name, pkg.ModInfo.Name)
+		if pkg.modName != file.Name.Name {
+			log.Fatalf("mod of %s is %s which should be %s\n", fileName, file.Name.Name, pkg.modName)
 		}
 	}
 }
