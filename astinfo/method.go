@@ -16,11 +16,11 @@ const (
 
 type Method struct {
 	Receiver  *Struct
-	Name      string        // method name
-	Params    []*StructType // method params, 下标0是request
-	Results   []*StructType // method results（output)
-	Url       string        // method url from comments;
-	HasCreate bool          // has create method 返回值同Params
+	Name      string      // method name
+	Params    []*Variable // method params, 下标0是request
+	Results   []*Variable // method results（output)
+	Url       string      // method url from comments;
+	HasCreate bool        // has create method 返回值同Params
 	function  *ast.FuncDecl
 	goFile    *GoFile
 }
@@ -76,7 +76,7 @@ func (method *Method) parseServlet() {
 }
 
 // 解析参数或者返回值的一个变量
-func (method *Method) parseFieldType(field *ast.Field) *StructType {
+func (method *Method) parseFieldType(field *ast.Field) *Variable {
 	var selectorExpr *ast.SelectorExpr
 	var isPointer bool
 	if fieldType, ok := field.Type.(*ast.StarExpr); ok {
@@ -101,9 +101,9 @@ func (method *Method) parseFieldType(field *ast.Field) *StructType {
 	}
 	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
 	struct1 := pkg.getStruct(structName, true)
-	return &StructType{
-		Struct:    struct1,
-		IsPointer: isPointer,
+	return &Variable{
+		class:     struct1,
+		isPointer: isPointer,
 	}
 }
 func (method *Method) parseCreator() {
@@ -116,7 +116,7 @@ func (method *Method) parseCreator() {
 	// 2. 如何区分返回的是指针还是结构体
 	structType := method.parseFieldType(returnTypeList[0])
 	if structType != nil {
-		struct1 := structType.Struct
+		struct1 := structType.class
 		method.Receiver.addCreator(struct1, method)
 		method.Results = append(method.Results, structType)
 	} else {
@@ -175,5 +175,5 @@ func (method *Method) GenerateCode() string {
 }
 
 func (m *Method) generateCrateor() string {
-	return m.Receiver.GetCreatorCode4Struct(m.Params[0].Struct)
+	return m.Receiver.GetCreatorCode4Struct(m.Params[0].class)
 }
