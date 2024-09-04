@@ -1,7 +1,6 @@
 package astinfo
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -15,7 +14,7 @@ type Struct struct {
 	structFound bool
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
-	variableName string
+	receiver *Variable
 }
 
 func CreateStruct(name string, pkg *Package) *Struct {
@@ -28,9 +27,18 @@ func CreateStruct(name string, pkg *Package) *Struct {
 
 // 注意跟变量注入区分开来
 func (class *Struct) GenerateCode() string {
-	class.variableName = class.Package.ModInfo.Name + class.Name
+
+	if len(class.ServletMethods) == 0 {
+		return ""
+	}
+	class.receiver = &Variable{
+		class:        class,
+		isPointer:    false,
+		name:         firstLower(class.Name),
+		calledInFile: class.Package.file,
+	}
 	var sb strings.Builder
-	sb.WriteString(class.variableName + ":=" + class.generateObject())
+	sb.WriteString(class.receiver.name + ":=" + class.receiver.generateCode())
 	for _, servlet := range class.ServletMethods {
 		sb.WriteString(servlet.GenerateCode())
 	}
@@ -41,11 +49,11 @@ func (class *Struct) GenerateCode() string {
 // 1. 生成用于servet的类的对象；
 // 2. 用于生成servlet参数的对象；
 // 是否生成注入的代码，需要考虑 上述1，2的注入方法是否有区别
-func (class *Struct) generateObject() string {
-	// 变量名的规则是 ${modName}${struct.Name}
-	codeFmt := "%s.%s{}\n"
-	return fmt.Sprintf(codeFmt, class.Package.ModInfo.Name, class.Name)
-}
+// func (class *Struct) generateObject() string {
+// 	// 变量名的规则是 ${modName}${struct.Name}
+// 	codeFmt := "%s.%s{}\n"
+// 	return fmt.Sprintf(codeFmt, class.Package.ModInfo.Name, class.Name)
+// }
 
 func (class *Struct) addServlet(method *Method) {
 	class.ServletMethods = append(class.ServletMethods, method)
@@ -57,12 +65,12 @@ func (class *Struct) addCreator(childClass *Struct, method *Method) {
 }
 
 // 一个servlet的request对象，可以直接构造空方法，也可以调用该类型提供的creator方法；
-func (class *Struct) GetCreatorCode4Struct(childClass *Struct) string {
-	if method, ok := class.CreatorMethods[childClass]; ok {
-		// 调用cratetor方法，则为该对象的变量+creator方法
-		return class.variableName + "." + method.Name + "()\n"
-	} else {
-		// 直接构建空对象
-		return childClass.generateObject()
-	}
-}
+// func (class *Struct) GetCreatorCode4Struct(childClass *Struct) string {
+// 	if method, ok := class.CreatorMethods[childClass]; ok {
+// 		// 调用cratetor方法，则为该对象的变量+creator方法
+// 		return class.variableName + "." + method.Name + "()\n"
+// 	} else {
+// 		// 直接构建空对象
+// 		return childClass.generateObject()
+// 	}
+// }

@@ -14,20 +14,25 @@ const (
 	SERVLET
 )
 
+type Function struct {
+	Name     string      // method name
+	Params   []*Variable // method params, 下标0是request
+	Results  []*Variable // method results（output)
+	function *ast.FuncDecl
+}
+
 type Method struct {
-	Receiver  *Struct
-	Name      string      // method name
-	Params    []*Variable // method params, 下标0是request
-	Results   []*Variable // method results（output)
-	Url       string      // method url from comments;
-	HasCreate bool        // has create method 返回值同Params
-	function  *ast.FuncDecl
-	goFile    *GoFile
+	Receiver *Struct
+	Function
+	Url       string // method url from comments;
+	HasCreate bool   // has create method 返回值同Params
+
+	goFile *GoFile
 }
 
 func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
 	return &Method{
-		function: f,
+		Function: Function{function: f},
 		goFile:   goFile,
 	}
 }
@@ -154,12 +159,12 @@ func (method *Method) parseComment() int {
 func (method *Method) GenerateCode() string {
 	codeFmt := `
 	router.POST("%s", func(c *gin.Context) {
-		request := %s
-		if err := c.ShouldBindJSON(&request); err != nil {
+		%s
+		if err := c.ShouldBindJSON(request); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		response, err := %s.%s(&request, c)
+		response, err := %s.%s(request, c)
 		c.JSON(200, basic.Response{
 			Object:  response,
 			Code:    err.Code,
@@ -167,13 +172,23 @@ func (method *Method) GenerateCode() string {
 		})
 	})
 	`
+	var variableCode string
+	variable := *method.Params[0]
+	variable.calledInFile = method.Receiver.receiver.calledInFile
+	variable.name = "request"
+	if variable.isPointer {
+		variableCode = "request:=" + variable.generateCode() + "\n"
+	} else {
+		variableCode = "requestObj:=" + variable.generateCode() + "\n request:=&requestObj\n"
+	}
+
 	return fmt.Sprintf(codeFmt,
 		method.Url,
-		method.generateCrateor(),
-		method.Receiver.variableName, method.Name,
+		variableCode,
+		method.Receiver.receiver.name, method.Name,
 	)
 }
 
-func (m *Method) generateCrateor() string {
-	return m.Receiver.GetCreatorCode4Struct(m.Params[0].class)
-}
+// func (m *Method) generateCrateor() string {
+// 	return m.Receiver.GetCreatorCode4Struct(m.Params[0].class)
+// }

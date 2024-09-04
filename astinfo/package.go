@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -16,6 +17,7 @@ type Package struct {
 	modPath   string //本package的mode path全路径
 	Project   *Project
 	StructMap map[string]*Struct //key是StructName
+	file      *GenedFile
 }
 
 type Import struct {
@@ -76,11 +78,29 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 // 生成代码
 
 func (pkg *Package) GenerateCode() string {
+	pkg.file = &GenedFile{
+		genCodeImport:        make(map[string]*Import),
+		genCodeImportNameMap: make(map[string]int),
+	}
 	var sb strings.Builder
 	for _, class := range pkg.StructMap {
 		if len(class.ServletMethods) > 0 {
 			sb.WriteString(class.GenerateCode())
 		}
 	}
-	return sb.String()
+	if sb.Len() == 0 {
+		return ""
+	}
+	name := pkg.modPath[len(pkg.Project.Mod)+1:]
+	name = strings.ReplaceAll(name, "/", "_")
+	content := ("package gen\n" +
+		pkg.genImport() +
+		"func init" + name + "(router *gin.Engine){\n") +
+		sb.String() +
+		"}\n"
+	os.WriteFile(name+".go", []byte(content), 0660)
+	return fmt.Sprintf("init%s(router)\n", name)
+}
+func (pkg *Package) genImport() string {
+	return ""
 }

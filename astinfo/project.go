@@ -62,16 +62,26 @@ func (project *Project) parseDir(pathStr string) {
 		}
 	}
 }
+func (project *Project) generateInit(sb *strings.Builder) {
 
+}
 func (project *Project) GenerateCode() string {
+	err := os.Mkdir("gen", 0750)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+	os.Chdir(filepath.Join(project.Path, "gen"))
 	var sb strings.Builder
+	project.generateInit(&sb)
 	//生成函数明
-	sb.WriteString("func InitRoute(router *gin.Engine) {\n")
+	sb.WriteString("package gen\nfunc InitRoute(router *gin.Engine) {\n")
 	//生成原始初始化对象，如数据库等；
 	//生成servlet
 	for _, pkg := range project.Package {
 		sb.WriteString(pkg.GenerateCode())
 	}
 	sb.WriteString("}\n")
-	return sb.String()
+
+	os.WriteFile("project.go", []byte(sb.String()), 0660)
+	return ""
 }
