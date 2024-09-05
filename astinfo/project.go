@@ -40,10 +40,11 @@ func (project *Project) getPackage(modPath string, create bool) *Package {
 // 根据dir全路径，返回mod全路径
 func (project *Project) getModePath(pathStr string) string {
 	pathLen := len(project.Path)
-	if !strings.HasPrefix(pathStr, project.Path) {
-		log.Fatalf("pack path %s is not in current Dir %s\n", pathStr, project.Path)
+
+	if strings.HasPrefix(pathStr, project.Path) {
+		pathStr = pathStr[pathLen:]
 	}
-	return filepath.Join(project.Mod, pathStr[pathLen:])
+	return filepath.Join(project.Mod, pathStr)
 }
 
 func (project *Project) parseDir(pathStr string) {

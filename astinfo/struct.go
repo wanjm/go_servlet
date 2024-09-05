@@ -26,7 +26,7 @@ func CreateStruct(name string, pkg *Package) *Struct {
 }
 
 // 注意跟变量注入区分开来
-func (class *Struct) GenerateCode() string {
+func (class *Struct) GenerateCode(file *GenedFile) string {
 
 	if len(class.ServletMethods) == 0 {
 		return ""
@@ -35,12 +35,12 @@ func (class *Struct) GenerateCode() string {
 		class:        class,
 		isPointer:    false,
 		name:         firstLower(class.Name),
-		calledInFile: class.Package.file,
+		calledInFile: file,
 	}
 	var sb strings.Builder
 	sb.WriteString(class.receiver.name + ":=" + class.receiver.generateCode())
 	for _, servlet := range class.ServletMethods {
-		sb.WriteString(servlet.GenerateCode())
+		sb.WriteString(servlet.GenerateCode(file))
 	}
 	return sb.String()
 }

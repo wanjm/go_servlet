@@ -19,6 +19,7 @@ type Function struct {
 	Params   []*Variable // method params, 下标0是request
 	Results  []*Variable // method results（output)
 	function *ast.FuncDecl
+	pkg      *Package
 }
 
 type Method struct {
@@ -26,14 +27,16 @@ type Method struct {
 	Function
 	Url       string // method url from comments;
 	HasCreate bool   // has create method 返回值同Params
-
-	goFile *GoFile
+	goFile    *GoFile
 }
 
 func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
 	return &Method{
-		Function: Function{function: f},
-		goFile:   goFile,
+		Function: Function{
+			function: f,
+			pkg:      goFile.pkg,
+		},
+		goFile: goFile,
 	}
 }
 func (method *Method) Parse() bool {
@@ -156,7 +159,9 @@ func (method *Method) parseComment() int {
 }
 
 // 产生本方法即成到路由中去的方法
-func (method *Method) GenerateCode() string {
+func (method *Method) GenerateCode(file *GenedFile) string {
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	codeFmt := `
 	router.POST("%s", func(c *gin.Context) {
 		%s
@@ -174,7 +179,7 @@ func (method *Method) GenerateCode() string {
 	`
 	var variableCode string
 	variable := *method.Params[0]
-	variable.calledInFile = method.Receiver.receiver.calledInFile
+	variable.calledInFile = file
 	variable.name = "request"
 	if variable.isPointer {
 		variableCode = "request:=" + variable.generateCode() + "\n"

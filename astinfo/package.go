@@ -10,14 +10,18 @@ import (
 	"strings"
 )
 
+type PackageInfo struct {
+	modName string //本package的mode name；基本没有什么用，本程序不检查；
+	modPath string //本package的mode path全路径
+}
+
 type Package struct {
 	// Struct    []*Struct
 	// ModInfo   Import
-	modName   string //本package的mode name；基本没有什么用，本程序不检查；
-	modPath   string //本package的mode path全路径
+	PackageInfo
 	Project   *Project
 	StructMap map[string]*Struct //key是StructName
-	file      *GenedFile
+	// file      *GenedFile
 }
 
 type Import struct {
@@ -29,7 +33,9 @@ func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:   project,
 		StructMap: make(map[string]*Struct),
-		modPath:   modPath,
+		PackageInfo: PackageInfo{
+			modPath: modPath,
+		},
 	}
 }
 
@@ -78,14 +84,14 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 // 生成代码
 
 func (pkg *Package) GenerateCode() string {
-	pkg.file = &GenedFile{
+	file := &GenedFile{
 		genCodeImport:        make(map[string]*Import),
 		genCodeImportNameMap: make(map[string]int),
 	}
 	var sb strings.Builder
 	for _, class := range pkg.StructMap {
 		if len(class.ServletMethods) > 0 {
-			sb.WriteString(class.GenerateCode())
+			sb.WriteString(class.GenerateCode(file))
 		}
 	}
 	if sb.Len() == 0 {
@@ -94,13 +100,10 @@ func (pkg *Package) GenerateCode() string {
 	name := pkg.modPath[len(pkg.Project.Mod)+1:]
 	name = strings.ReplaceAll(name, "/", "_")
 	content := ("package gen\n" +
-		pkg.genImport() +
+		file.genImport() +
 		"func init" + name + "(router *gin.Engine){\n") +
 		sb.String() +
 		"}\n"
 	os.WriteFile(name+".go", []byte(content), 0660)
 	return fmt.Sprintf("init%s(router)\n", name)
-}
-func (pkg *Package) genImport() string {
-	return ""
 }

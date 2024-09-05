@@ -1,6 +1,9 @@
 package astinfo
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // 每个有自动生成代码的package 会有一个GenedFile类；
 type GenedFile struct {
@@ -10,24 +13,38 @@ type GenedFile struct {
 	genCodeImportNameMap map[string]int     //记录mode的个数；
 }
 
-func (file *GenedFile) getImport(importPkg *Package) (result *Import) {
-	modePath := importPkg.modPath
+func (file *GenedFile) getImport(modePath, modeName string) (result *Import) {
 	if impt, ok := file.genCodeImport[modePath]; ok {
 		return impt
 	}
-	if _, ok := file.genCodeImportNameMap[importPkg.modName]; ok {
-		file.genCodeImportNameMap[importPkg.modName] = file.genCodeImportNameMap[importPkg.modName] + 1
+	if _, ok := file.genCodeImportNameMap[modeName]; ok {
+		file.genCodeImportNameMap[modeName] = file.genCodeImportNameMap[modeName] + 1
 		result = &Import{
-			Name: importPkg.modName + strconv.Itoa(file.genCodeImportNameMap[importPkg.modName]),
+			Name: modeName + strconv.Itoa(file.genCodeImportNameMap[modeName]),
 			Path: modePath,
 		}
 	} else {
-		file.genCodeImportNameMap[importPkg.modName] = 0
+		file.genCodeImportNameMap[modeName] = 0
 		result = &Import{
-			Name: importPkg.modName,
+			Name: modeName,
 			Path: modePath,
 		}
 	}
 	file.genCodeImport[modePath] = result
 	return
+}
+func (file *GenedFile) genImport() string {
+	if len(file.genCodeImport) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("import (\n")
+	for _, v := range file.genCodeImport {
+		sb.WriteString(v.Name)
+		sb.WriteString(" \"")
+		sb.WriteString(v.Path)
+		sb.WriteString("\"\n")
+	}
+	sb.WriteString(")\n")
+	return sb.String()
 }

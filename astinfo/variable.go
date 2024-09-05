@@ -10,6 +10,6 @@ type Variable struct {
 }
 
 func (variable *Variable) generateCode() string {
-	impt := variable.calledInFile.getImport(variable.class.Package)
+	impt := variable.calledInFile.getImport(variable.class.Package.modPath, variable.class.Package.modName)
 	return fmt.Sprintf("%s.%s{}", impt.Name, variable.class.Name)
 }
