@@ -13,6 +13,12 @@ type GenedFile struct {
 	genCodeImportNameMap map[string]int     //记录mode的个数；
 }
 
+func createGenedFile() GenedFile {
+	return GenedFile{
+		genCodeImport:        make(map[string]*Import),
+		genCodeImportNameMap: make(map[string]int),
+	}
+}
 func (file *GenedFile) getImport(modePath, modeName string) (result *Import) {
 	if impt, ok := file.genCodeImport[modePath]; ok {
 		return impt

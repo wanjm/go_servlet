@@ -84,14 +84,11 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 // 生成代码
 
 func (pkg *Package) GenerateCode() string {
-	file := &GenedFile{
-		genCodeImport:        make(map[string]*Import),
-		genCodeImportNameMap: make(map[string]int),
-	}
+	file := createGenedFile()
 	var sb strings.Builder
 	for _, class := range pkg.StructMap {
 		if len(class.ServletMethods) > 0 {
-			sb.WriteString(class.GenerateCode(file))
+			sb.WriteString(class.GenerateCode(&file))
 		}
 	}
 	if sb.Len() == 0 {

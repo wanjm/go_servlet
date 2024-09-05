@@ -71,11 +71,15 @@ func (project *Project) GenerateCode() string {
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
+	file := createGenedFile()
+	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir(filepath.Join(project.Path, "gen"))
 	var sb strings.Builder
 	project.generateInit(&sb)
 	//生成函数明
-	sb.WriteString("package gen\nfunc InitRoute(router *gin.Engine) {\n")
+	sb.WriteString("package gen\n")
+	sb.WriteString(file.genImport())
+	sb.WriteString("func InitRoute(router *gin.Engine) {\n")
 	//生成原始初始化对象，如数据库等；
 	//生成servlet
 	for _, pkg := range project.Package {

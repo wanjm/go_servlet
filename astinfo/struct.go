@@ -14,7 +14,6 @@ type Struct struct {
 	structFound bool
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
-	receiver *Variable
 }
 
 func CreateStruct(name string, pkg *Package) *Struct {
@@ -31,16 +30,16 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	if len(class.ServletMethods) == 0 {
 		return ""
 	}
-	class.receiver = &Variable{
+	receiver := &Variable{
 		class:        class,
 		isPointer:    false,
 		name:         firstLower(class.Name),
 		calledInFile: file,
 	}
 	var sb strings.Builder
-	sb.WriteString(class.receiver.name + ":=" + class.receiver.generateCode())
+	sb.WriteString(receiver.name + ":=" + receiver.generateCode(""))
 	for _, servlet := range class.ServletMethods {
-		sb.WriteString(servlet.GenerateCode(file))
+		sb.WriteString(servlet.GenerateCode(file, receiver.name))
 	}
 	return sb.String()
 }

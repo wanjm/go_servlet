@@ -159,7 +159,7 @@ func (method *Method) parseComment() int {
 }
 
 // 产生本方法即成到路由中去的方法
-func (method *Method) GenerateCode(file *GenedFile) string {
+func (method *Method) GenerateCode(file *GenedFile, receiverName string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	codeFmt := `
@@ -181,16 +181,22 @@ func (method *Method) GenerateCode(file *GenedFile) string {
 	variable := *method.Params[0]
 	variable.calledInFile = file
 	variable.name = "request"
+	// 从receiver中查找是否有Creator方法
+	creator := method.Receiver.CreatorMethods[variable.class]
+	if creator != nil {
+		variable.creator = &creator.Function
+		variable.isPointer = creator.Results[0].isPointer
+	}
 	if variable.isPointer {
-		variableCode = "request:=" + variable.generateCode() + "\n"
+		variableCode = "request:=" + variable.generateCode(receiverName+".") + "\n"
 	} else {
-		variableCode = "requestObj:=" + variable.generateCode() + "\n request:=&requestObj\n"
+		variableCode = "requestObj:=" + variable.generateCode(receiverName+".") + "\n request:=&requestObj\n"
 	}
 
 	return fmt.Sprintf(codeFmt,
 		method.Url,
 		variableCode,
-		method.Receiver.receiver.name, method.Name,
+		receiverName, method.Name,
 	)
 }
 
