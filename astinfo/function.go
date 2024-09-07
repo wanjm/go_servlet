@@ -225,7 +225,9 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 }
 
 // 产生本方法即成到路由中去的方法
-func (method *Function) GenerateCode(file *GenedFile, receiverName string) string {
+// file: 表示在那个文件中产生；
+// receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
+func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	codeFmt := `
@@ -235,7 +237,7 @@ func (method *Function) GenerateCode(file *GenedFile, receiverName string) strin
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		response, err := %s.%s(request, c)
+		response, err := %s%s(request, c)
 		c.JSON(200, basic.Response{
 			Object:  response,
 			Code:    err.Code,
@@ -254,14 +256,14 @@ func (method *Function) GenerateCode(file *GenedFile, receiverName string) strin
 		variable.isPointer = creator.Results[0].isPointer
 	}
 	if variable.isPointer {
-		variableCode = "request:=" + variable.generateCode(receiverName+".") + "\n"
+		variableCode = "request:=" + variable.generateCode(receiverPrefix) + "\n"
 	} else {
-		variableCode = "requestObj:=" + variable.generateCode(receiverName+".") + "\n request:=&requestObj\n"
+		variableCode = "requestObj:=" + variable.generateCode(receiverPrefix) + "\n request:=&requestObj\n"
 	}
 
 	return fmt.Sprintf(codeFmt,
 		method.Url,
 		variableCode,
-		receiverName, method.Name,
+		receiverPrefix, method.Name,
 	)
 }
