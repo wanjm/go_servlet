@@ -79,19 +79,36 @@ func (project *Project) GenerateCode() string {
 	file := createGenedFile()
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
-	var sb strings.Builder
-	project.generateInit(&sb)
+	var content strings.Builder
+	project.generateInit(&content)
 	//生成函数明
-	sb.WriteString("package gen\n")
-	sb.WriteString(file.genImport())
-	sb.WriteString("func InitRoute(router *gin.Engine) {\n")
+	content.WriteString("package gen\n")
+	content.WriteString(file.genImport())
+	content.WriteString(`
+	func InitAll(router *gin.Engine){
+		initVariable()
+		initRoute(router)
+	}
+	`)
+	var routeContent strings.Builder
+	var variableContent strings.Builder
+	routeContent.WriteString("func initRoute(router *gin.Engine) {\n")
+	variableContent.WriteString("func initVariable() {\n")
 	//生成原始初始化对象，如数据库等；
 	//生成servlet
 	for _, pkg := range project.Package {
-		sb.WriteString(pkg.GenerateCode())
+		variableName, routerName := pkg.GenerateCode()
+		if len(variableName) > 0 {
+			variableContent.WriteString(variableName + "()\n")
+		}
+		if len(routerName) > 0 {
+			routeContent.WriteString(routerName + "(router)\n")
+		}
 	}
-	sb.WriteString("}\n")
-
-	os.WriteFile("project.go", []byte(sb.String()), 0660)
+	variableContent.WriteString("}\n")
+	routeContent.WriteString("}\n")
+	content.WriteString(variableContent.String())
+	content.WriteString(routeContent.String())
+	os.WriteFile("project.go", []byte(content.String()), 0660)
 	return ""
 }

@@ -98,35 +98,46 @@ func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.
 	}
 	return
 }
-func (pkg *Package) GenerateCode() string {
+func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	// 产生文件；
 	file := createGenedFile()
 
-	var sb strings.Builder
+	var routerFunction strings.Builder
 	// 调用initiator函数
 	define, assign := pkg.generateInitorCode(&file)
 	// 针对每个struct，产生servlet文件；
 	for _, class := range pkg.StructMap {
 		if len(class.servletMethods) > 0 {
-			sb.WriteString(class.GenerateCode(&file))
+			routerFunction.WriteString(class.GenerateCode(&file))
 		}
 	}
-	if sb.Len()+define.Len()+assign.Len() == 0 {
-		return ""
+	if define.Len() == 0 && routerFunction.Len() == 0 {
+		return
 	}
-	name := pkg.modPath[len(pkg.Project.Mod)+1:]
-	// 工程根目录会出现这样的情况
-	if len(name) == 0 {
+	var name string
+	if len(pkg.modPath) > len(pkg.Project.Mod) {
+		name = pkg.modPath[len(pkg.Project.Mod)+1:]
+	} else {
 		name = pkg.modName
 	}
 	name = strings.ReplaceAll(name, "/", "_")
-	content := ("package gen\n" +
-		file.genImport() +
-		define.String() +
-		"func init" + name + "(router *gin.Engine){\n") +
-		assign.String() +
-		sb.String() +
-		"}\n"
-	os.WriteFile(name+".go", []byte(content), 0660)
-	return fmt.Sprintf("init%s(router)\n", name)
+	var content strings.Builder
+	content.WriteString("package gen\n")
+	content.WriteString(file.genImport())
+	if define.Len() > 0 {
+		initorName = fmt.Sprintf("init%s_variable", name)
+		content.WriteString(define.String())
+		content.WriteString("func " + initorName + "(){\n")
+		content.WriteString(assign.String())
+		content.WriteString("}\n")
+	}
+	if routerFunction.Len() > 0 {
+		routerName = fmt.Sprintf("init%s_router", name)
+		content.WriteString("func " + routerName + "(router *gin.Engine){\n")
+		content.WriteString(routerFunction.String())
+		content.WriteString("}\n")
+	}
+
+	os.WriteFile(name+".go", []byte(content.String()), 0660)
+	return
 }
