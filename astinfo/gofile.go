@@ -38,7 +38,7 @@ func (goFile *GoFile) parseFile() {
 			}
 		} else if funcDecl, ok := decls[i].(*ast.FuncDecl); ok {
 			if funcDecl.Recv == nil {
-				// goFile.parseFunction(function)
+				goFile.parseFunction(funcDecl)
 			} else {
 				goFile.parseMethod(funcDecl)
 			}
@@ -69,8 +69,11 @@ func (goFile *GoFile) parseStruct(class *ast.TypeSpec) {
 	}
 }
 
-// 解析对象的方法
+// 解析对象的方法, 解析完成后自动塞到receiver对象中去
 func (goFile *GoFile) parseMethod(method *ast.FuncDecl) {
 	method1 := createMethod(method, goFile)
 	method1.Parse()
+}
+func (goFile *GoFile) parseFunction(function *ast.FuncDecl) {
+
 }

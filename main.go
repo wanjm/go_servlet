@@ -1,57 +1,20 @@
 package main
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"os"
+	"fmt"
+	"log"
 	"path/filepath"
-	"strings"
+
+	"gitlab.plaso.cn/webgen/astinfo"
 )
 
-type PlasoParser struct {
-	Pkgs map[string]*ast.Package
-}
-
-func (pparse *PlasoParser) ParseDir(fset *token.FileSet, path string) (first error) {
-	list, err := os.ReadDir(path)
+func main() {
+	path, err := filepath.Abs("../server")
 	if err != nil {
-		return err
+		log.Printf("open %s failed with %s", path, err.Error())
+		return
 	}
-
-	for _, d := range list {
-		if d.IsDir() {
-			pparse.ParseDir(fset, filepath.Join(path, d.Name()))
-			continue
-		}
-		if !strings.HasSuffix(d.Name(), ".go") {
-			continue
-		}
-		// if filter != nil {
-		// 	info, err := d.Info()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	if !filter(info) {
-		// 		continue
-		// 	}
-		// }
-		filename := filepath.Join(path, d.Name())
-		if src, err := parser.ParseFile(fset, filename, nil, parser.ParseComments|parser.AllErrors); err == nil {
-			name := src.Name.Name
-			pkg, found := pparse.Pkgs[name]
-			if !found {
-				pkg = &ast.Package{
-					Name:  name,
-					Files: make(map[string]*ast.File),
-				}
-				pparse.Pkgs[name] = pkg
-			}
-			pkg.Files[filename] = src
-		} else if first == nil {
-			first = err
-		}
-	}
-
-	return
+	var project = astinfo.CreateProject(path)
+	project.Parse()
+	fmt.Println(project.GenerateCode())
 }

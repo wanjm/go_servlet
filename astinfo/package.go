@@ -87,7 +87,7 @@ func (pkg *Package) GenerateCode() string {
 	file := createGenedFile()
 	var sb strings.Builder
 	for _, class := range pkg.StructMap {
-		if len(class.ServletMethods) > 0 {
+		if len(class.servletMethods) > 0 {
 			sb.WriteString(class.GenerateCode(&file))
 		}
 	}

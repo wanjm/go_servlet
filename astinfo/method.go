@@ -1,33 +1,14 @@
 package astinfo
 
 import (
-	"fmt"
 	"go/ast"
-	"log"
-	"os"
-	"strings"
 )
-
-const (
-	NOUSAGE = iota
-	CREATOR
-	SERVLET
-)
-
-type Function struct {
-	Name     string      // method name
-	Params   []*Variable // method params, 下标0是request
-	Results  []*Variable // method results（output)
-	function *ast.FuncDecl
-	pkg      *Package
-}
 
 type Method struct {
 	Receiver *Struct
 	Function
 	Url       string // method url from comments;
 	HasCreate bool   // has create method 返回值同Params
-	goFile    *GoFile
 }
 
 func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
@@ -35,8 +16,8 @@ func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
 		Function: Function{
 			function: f,
 			pkg:      goFile.pkg,
+			goFile:   goFile,
 		},
-		goFile: goFile,
 	}
 }
 func (method *Method) Parse() bool {
@@ -49,27 +30,17 @@ func (method *Method) Parse() bool {
 		nameIndent = recvType.(*ast.Ident)
 	}
 	method.Receiver = method.goFile.pkg.getStruct(nameIndent.Name, true)
-	method.Name = f.Name.Name
-	funcType := method.parseComment()
-
-	switch funcType {
-	case CREATOR:
-		method.parseCreator()
-	case SERVLET:
-		method.parseServlet()
-	}
+	method.funcManager = &method.Receiver.FunctionManager
+	method.Function.Parse()
 	return true
-}
-
-func (method *Method) checkIfCreator() bool {
-	// 暂时简化处理Creator方法
-	return strings.HasSuffix(method.Name, "Creator")
 }
 
 // 解析参数,解析返回值
 func (method *Method) initParamether() {
 	// params := f.Type.Params
 }
+
+/*
 func (method *Method) parseServlet() {
 	funcDecl := method.function
 	paramsList := funcDecl.Type.Params.List
@@ -199,6 +170,7 @@ func (method *Method) GenerateCode(file *GenedFile, receiverName string) string 
 		receiverName, method.Name,
 	)
 }
+*/
 
 // func (m *Method) generateCrateor() string {
 // 	return m.Receiver.GetCreatorCode4Struct(m.Params[0].class)

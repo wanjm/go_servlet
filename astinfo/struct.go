@@ -7,8 +7,9 @@ import (
 type Struct struct {
 	Name string
 	// ImportUrl      string
-	ServletMethods []*Method           //记录路由代码
-	CreatorMethods map[*Struct]*Method //纪录构建默认参数的代码, key是构建的struct
+	// ServletMethods []*Method           //记录路由代码
+	// CreatorMethods map[*Struct]*Method //纪录构建默认参数的代码, key是构建的struct
+	FunctionManager
 	// Import         *Import
 	Package     *Package
 	structFound bool
@@ -18,16 +19,18 @@ type Struct struct {
 
 func CreateStruct(name string, pkg *Package) *Struct {
 	return &Struct{
-		Name:           name,
-		Package:        pkg,
-		CreatorMethods: make(map[*Struct]*Method),
+		Name:    name,
+		Package: pkg,
+		FunctionManager: FunctionManager{
+			creatorMethods: make(map[*Struct]*Function),
+		},
 	}
 }
 
 // 注意跟变量注入区分开来
 func (class *Struct) GenerateCode(file *GenedFile) string {
 
-	if len(class.ServletMethods) == 0 {
+	if len(class.servletMethods) == 0 {
 		return ""
 	}
 	receiver := &Variable{
@@ -38,7 +41,7 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	}
 	var sb strings.Builder
 	sb.WriteString(receiver.name + ":=" + receiver.generateCode(""))
-	for _, servlet := range class.ServletMethods {
+	for _, servlet := range class.servletMethods {
 		sb.WriteString(servlet.GenerateCode(file, receiver.name))
 	}
 	return sb.String()
@@ -54,14 +57,14 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 // 	return fmt.Sprintf(codeFmt, class.Package.ModInfo.Name, class.Name)
 // }
 
-func (class *Struct) addServlet(method *Method) {
-	class.ServletMethods = append(class.ServletMethods, method)
-}
+// func (class *Struct) addServlet(method *Method) {
+// 	class.ServletMethods = append(class.ServletMethods, method)
+// }
 
-// creator是用户提供的创建某个对象的方法，主要是用于设置请求的默认值；主要用于构建servlet的request参数
-func (class *Struct) addCreator(childClass *Struct, method *Method) {
-	class.CreatorMethods[childClass] = method
-}
+// // creator是用户提供的创建某个对象的方法，主要是用于设置请求的默认值；主要用于构建servlet的request参数
+// func (class *Struct) addCreator(childClass *Struct, method *Method) {
+// 	class.CreatorMethods[childClass] = method
+// }
 
 // 一个servlet的request对象，可以直接构造空方法，也可以调用该类型提供的creator方法；
 // func (class *Struct) GetCreatorCode4Struct(childClass *Struct) string {
