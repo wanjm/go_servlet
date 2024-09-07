@@ -19,7 +19,7 @@ const (
 type FunctionManag interface {
 	addServlet(*Function)
 	addCreator(childClass *Struct, method *Function)
-	addInitiator(initiator *Initiator)
+	addInitiator(initiator *Variable)
 }
 
 type FunctionManager struct {
@@ -43,7 +43,7 @@ func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Fun
 	funcManager.creatorMethods[childClass] = function
 }
 
-func (funcManager *FunctionManager) addInitiator(initiator *Initiator) {
+func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
 	var inits *Initiators
@@ -56,10 +56,10 @@ func (funcManager *FunctionManager) addInitiator(initiator *Initiator) {
 	if len(name) == 0 {
 		name = "default"
 		if inits.defaultValue != nil {
-			log.Fatalf("only one initiator can have no name but %s in %s already decleaed when parse in %s",
-				inits.defaultValue.function.Name,
-				inits.defaultValue.function.goFile.path,
-				initiator.function.goFile.path,
+			log.Fatalf("only one initiator can have empty name but %s in %s already decleaed when parse in %s",
+				inits.defaultValue.name,
+				inits.defaultValue.creator.goFile.path,
+				initiator.creator.goFile.path,
 			)
 		}
 		inits.defaultValue = initiator
@@ -141,11 +141,10 @@ func (method *Function) Parse() bool {
 	case INITIATOR:
 		//后面如果需要添加inititor排序，需要新建函数返回Initiator
 		returnStruct := method.parseCreator()
-		method.funcManager.addInitiator(&Initiator{
-			name:     method.Results[0].name,
-			function: method,
-			index:    10,
-			class:    returnStruct,
+		method.funcManager.addInitiator(&Variable{
+			name:    method.Results[0].name,
+			creator: method,
+			class:   returnStruct,
 		})
 	case SERVLET:
 		method.parseServlet()
@@ -211,10 +210,12 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
 	var nameOfReturn0 string
 	switch len(field.Names) {
+	case 0:
+		nameOfReturn0 = "default"
 	case 1:
 		nameOfReturn0 = field.Names[0].Name
 	default:
-		log.Fatalf("initiator %s should have one or null return value", method.Name)
+		log.Fatalf("initiator %s should have one or null in %s return value", method.Name, method.goFile.path)
 	}
 	struct1 := pkg.getStruct(structName, true)
 	return &Variable{
@@ -247,7 +248,6 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 	`
 	var variableCode string
 	variable := *method.Params[0]
-	variable.calledInFile = file
 	variable.name = "request"
 	// 从receiver中查找是否有Creator方法
 	creator := method.funcManager.getCreator(variable.class)
@@ -256,9 +256,9 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 		variable.isPointer = creator.Results[0].isPointer
 	}
 	if variable.isPointer {
-		variableCode = "request:=" + variable.generateCode(receiverPrefix) + "\n"
+		variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
 	} else {
-		variableCode = "requestObj:=" + variable.generateCode(receiverPrefix) + "\n request:=&requestObj\n"
+		variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
 	}
 
 	return fmt.Sprintf(codeFmt,

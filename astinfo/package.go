@@ -85,13 +85,14 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 
 // 生成代码
 func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.Builder) {
-	var name string
-	name = "_"
 	for _, initors := range pkg.initiatorMap {
-		for _, initor := range initors.list {
+		for _, variable := range initors.list {
+			define.WriteString(variable.genDefinition(file))
+			define.WriteString("\n")
+			name := variable.name
 			assign.WriteString(name)
 			assign.WriteString("=")
-			assign.WriteString(initor.GenerateCode(file))
+			assign.WriteString(variable.generateCode("", file))
 			assign.WriteString("\n")
 		}
 	}
@@ -113,7 +114,7 @@ func (pkg *Package) GenerateCode() string {
 	if sb.Len()+define.Len()+assign.Len() == 0 {
 		return ""
 	}
-	name := pkg.modPath[len(pkg.Project.Mod):]
+	name := pkg.modPath[len(pkg.Project.Mod)+1:]
 	// 工程根目录会出现这样的情况
 	if len(name) == 0 {
 		name = pkg.modName

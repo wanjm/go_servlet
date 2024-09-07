@@ -32,13 +32,12 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 		return ""
 	}
 	receiver := &Variable{
-		class:        class,
-		isPointer:    false,
-		name:         firstLower(class.Name),
-		calledInFile: file,
+		class:     class,
+		isPointer: false,
+		name:      firstLower(class.Name),
 	}
 	var sb strings.Builder
-	sb.WriteString(receiver.name + ":=" + receiver.generateCode(""))
+	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file))
 	for _, servlet := range class.servletMethods {
 		sb.WriteString(servlet.GenerateCode(file, receiver.name+"."))
 	}

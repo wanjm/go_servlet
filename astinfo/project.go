@@ -11,10 +11,10 @@ import (
 const TagPrefix = "@plaso"
 
 type Project struct {
-	Path     string              // 项目所在的目录
-	Mod      string              // 该项目的mode名字
-	Package  map[string]*Package //key是mod的全路径
-	creators map[*Struct]*Initiator
+	Path    string              // 项目所在的目录
+	Mod     string              // 该项目的mode名字
+	Package map[string]*Package //key是mod的全路径
+	// creators map[*Struct]*Initiator
 }
 
 func (project *Project) Parse() {
@@ -25,9 +25,9 @@ func (project *Project) Parse() {
 
 func CreateProject(path string) Project {
 	return Project{
-		Path:     path,
-		Package:  make(map[string]*Package),
-		creators: make(map[*Struct]*Initiator),
+		Path:    path,
+		Package: make(map[string]*Package),
+		// creators: make(map[*Struct]*Initiator),
 	}
 }
 
