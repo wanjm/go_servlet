@@ -13,16 +13,26 @@ const (
 	NOUSAGE = iota
 	CREATOR
 	SERVLET
+	INITIATOR
 )
 
 type FunctionManag interface {
 	addServlet(*Function)
 	addCreator(childClass *Struct, method *Function)
+	addInitiator(initiator *Initiator)
 }
 
 type FunctionManager struct {
 	servletMethods []*Function           //记录路由代码
 	creatorMethods map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
+	initiatorMap   map[*Struct]*Initiators
+}
+
+func createFunctionManager() FunctionManager {
+	return FunctionManager{
+		creatorMethods: make(map[*Struct]*Function),
+		initiatorMap:   make(map[*Struct]*Initiators),
+	}
 }
 
 func (funcManager *FunctionManager) addServlet(function *Function) {
@@ -31,6 +41,31 @@ func (funcManager *FunctionManager) addServlet(function *Function) {
 
 func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Function) {
 	funcManager.creatorMethods[childClass] = function
+}
+
+func (funcManager *FunctionManager) addInitiator(initiator *Initiator) {
+	// 后续添加排序功能
+	// funcManager.initiator = append(funcManager.initiator, initiator)
+	var inits *Initiators
+	var ok bool
+	if inits, ok = funcManager.initiatorMap[initiator.class]; !ok {
+		inits = createInitiators()
+		funcManager.initiatorMap[initiator.class] = inits
+	}
+	name := initiator.name
+	if len(name) == 0 {
+		name = "default"
+		if inits.defaultValue != nil {
+			log.Fatalf("only one initiator can have no name but %s in %s already decleaed when parse in %s",
+				inits.defaultValue.function.Name,
+				inits.defaultValue.function.goFile.path,
+				initiator.function.goFile.path,
+			)
+		}
+		inits.defaultValue = initiator
+	}
+	inits.list[name] = initiator
+
 }
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
 	return funcManager.creatorMethods[childClass]
@@ -42,17 +77,19 @@ type Function struct {
 	Results     []*Variable // method results（output)
 	function    *ast.FuncDecl
 	pkg         *Package
-	Url         string // method url from comments;
-	deprecated  bool
 	goFile      *GoFile
 	funcManager *FunctionManager
+
+	Url        string // method url from comments;
+	deprecated bool
 }
 
 func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 	return &Function{
-		function: f,
-		pkg:      goFile.pkg,
-		goFile:   goFile,
+		function:    f,
+		pkg:         goFile.pkg,
+		goFile:      goFile,
+		funcManager: &goFile.pkg.FunctionManager,
 	}
 }
 
@@ -81,6 +118,8 @@ func (function *Function) parseComment() int {
 						return SERVLET
 					case "creator":
 						return CREATOR
+					case "initiator":
+						return INITIATOR
 					}
 
 				}
@@ -99,12 +138,22 @@ func (method *Function) Parse() bool {
 		if returnStruct != nil {
 			method.funcManager.addCreator(returnStruct, method)
 		}
+	case INITIATOR:
+		//后面如果需要添加inititor排序，需要新建函数返回Initiator
+		returnStruct := method.parseCreator()
+		method.funcManager.addInitiator(&Initiator{
+			name:     method.Results[0].name,
+			function: method,
+			index:    10,
+			class:    returnStruct,
+		})
 	case SERVLET:
 		method.parseServlet()
 		method.funcManager.addServlet(method)
 	}
 	return true
 }
+
 func (method *Function) parseCreator() *Struct {
 	funcDecl := method.function
 	returnTypeList := funcDecl.Type.Results.List
@@ -160,8 +209,16 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 		os.Exit(1)
 	}
 	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
+	var nameOfReturn0 string
+	switch len(field.Names) {
+	case 1:
+		nameOfReturn0 = field.Names[0].Name
+	default:
+		log.Fatalf("initiator %s should have one or null return value", method.Name)
+	}
 	struct1 := pkg.getStruct(structName, true)
 	return &Variable{
+		name:      nameOfReturn0,
 		class:     struct1,
 		isPointer: isPointer,
 	}

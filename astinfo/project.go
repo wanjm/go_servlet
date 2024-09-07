@@ -14,7 +14,7 @@ type Project struct {
 	Path     string              // 项目所在的目录
 	Mod      string              // 该项目的mode名字
 	Package  map[string]*Package //key是mod的全路径
-	creators map[*Struct]*Creator
+	creators map[*Struct]*Initiator
 }
 
 func (project *Project) Parse() {
@@ -27,7 +27,7 @@ func CreateProject(path string) Project {
 	return Project{
 		Path:     path,
 		Package:  make(map[string]*Package),
-		creators: make(map[*Struct]*Creator),
+		creators: make(map[*Struct]*Initiator),
 	}
 }
 
@@ -71,13 +71,14 @@ func (project *Project) generateInit(sb *strings.Builder) {
 
 }
 func (project *Project) GenerateCode() string {
+	os.Chdir(project.Path)
 	err := os.Mkdir("gen", 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
 	file := createGenedFile()
 	file.getImport("github.com/gin-gonic/gin", "gin")
-	os.Chdir(filepath.Join(project.Path, "gen"))
+	os.Chdir("gen")
 	var sb strings.Builder
 	project.generateInit(&sb)
 	//生成函数明

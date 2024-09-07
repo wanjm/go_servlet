@@ -19,11 +19,9 @@ type Struct struct {
 
 func CreateStruct(name string, pkg *Package) *Struct {
 	return &Struct{
-		Name:    name,
-		Package: pkg,
-		FunctionManager: FunctionManager{
-			creatorMethods: make(map[*Struct]*Function),
-		},
+		Name:            name,
+		Package:         pkg,
+		FunctionManager: createFunctionManager(),
 	}
 }
 

@@ -21,6 +21,7 @@ type Package struct {
 	PackageInfo
 	Project   *Project
 	StructMap map[string]*Struct //key是StructName
+	FunctionManager
 	// file      *GenedFile
 }
 
@@ -31,8 +32,9 @@ type Import struct {
 
 func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
-		Project:   project,
-		StructMap: make(map[string]*Struct),
+		Project:         project,
+		StructMap:       make(map[string]*Struct),
+		FunctionManager: createFunctionManager(),
 		PackageInfo: PackageInfo{
 			modPath: modPath,
 		},
@@ -94,7 +96,11 @@ func (pkg *Package) GenerateCode() string {
 	if sb.Len() == 0 {
 		return ""
 	}
-	name := pkg.modPath[len(pkg.Project.Mod)+1:]
+	name := pkg.modPath[len(pkg.Project.Mod):]
+	// 工程根目录会出现这样的情况
+	if len(name) == 0 {
+		name = pkg.modName
+	}
 	name = strings.ReplaceAll(name, "/", "_")
 	content := ("package gen\n" +
 		file.genImport() +
