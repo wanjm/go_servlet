@@ -41,6 +41,16 @@ func (project *Project) getPackage(modPath string, create bool) *Package {
 	return pkg
 }
 
+func (project *Project) getRelativeModePath(fullModPath string) (name string) {
+	projectModPathLen := len(project.Mod)
+	if len(fullModPath) > projectModPathLen {
+		name = fullModPath[projectModPathLen+1:]
+	} else {
+		name = "root"
+	}
+	return
+}
+
 // 根据dir全路径，返回mod全路径
 func (project *Project) getModePath(pathStr string) string {
 	pathLen := len(project.Path)

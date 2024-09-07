@@ -115,11 +115,7 @@ func (pkg *Package) GenerateCode() (initorName, routerName string) {
 		return
 	}
 	var name string
-	if len(pkg.modPath) > len(pkg.Project.Mod) {
-		name = pkg.modPath[len(pkg.Project.Mod)+1:]
-	} else {
-		name = pkg.modName
-	}
+	name = pkg.Project.getRelativeModePath(pkg.modPath)
 	name = strings.ReplaceAll(name, "/", "_")
 	var content strings.Builder
 	content.WriteString("package gen\n")

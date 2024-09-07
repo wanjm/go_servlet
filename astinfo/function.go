@@ -54,7 +54,8 @@ func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
 	}
 	name := initiator.name
 	if len(name) == 0 {
-		name = "default"
+		name = "default_" + initiator.creator.pkg.Project.getRelativeModePath(initiator.creator.pkg.modPath) + "_" + initiator.class.Name
+		initiator.name = strings.ReplaceAll(name, "/", "_")
 		if inits.defaultValue != nil {
 			log.Fatalf("only one initiator can have empty name but %s in %s already decleaed when parse in %s",
 				inits.defaultValue.name,
@@ -211,7 +212,7 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 	var nameOfReturn0 string
 	switch len(field.Names) {
 	case 0:
-		nameOfReturn0 = "default"
+		nameOfReturn0 = ""
 	case 1:
 		nameOfReturn0 = field.Names[0].Name
 	default:

@@ -12,7 +12,7 @@ package astinfo
 // }
 
 type Initiators struct {
-	list         map[string]*Variable
+	list         map[string]*Variable //变量名,creator返回值中的名字。否则通过default命名；
 	defaultValue *Variable
 }
 
