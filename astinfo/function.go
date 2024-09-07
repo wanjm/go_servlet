@@ -43,6 +43,14 @@ func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Fun
 	funcManager.creatorMethods[childClass] = function
 }
 
+func (funcManager *FunctionManager) getVariable(class *Struct, varName string) string {
+	inits := funcManager.initiatorMap[class]
+	if inits == nil {
+		return ""
+	}
+	return inits.getVariableName(varName)
+}
+
 func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
@@ -52,20 +60,7 @@ func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
 		inits = createInitiators()
 		funcManager.initiatorMap[initiator.class] = inits
 	}
-	name := initiator.name
-	if len(name) == 0 {
-		name = "default_" + initiator.creator.pkg.Project.getRelativeModePath(initiator.creator.pkg.modPath) + "_" + initiator.class.Name
-		initiator.name = strings.ReplaceAll(name, "/", "_")
-		if inits.defaultValue != nil {
-			log.Fatalf("only one initiator can have empty name but %s in %s already decleaed when parse in %s",
-				inits.defaultValue.name,
-				inits.defaultValue.creator.goFile.path,
-				initiator.creator.goFile.path,
-			)
-		}
-		inits.defaultValue = initiator
-	}
-	inits.list[name] = initiator
+	inits.addInitiator(initiator)
 
 }
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
