@@ -84,16 +84,33 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 }
 
 // 生成代码
-
+func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.Builder) {
+	var name string
+	name = "_"
+	for _, initors := range pkg.initiatorMap {
+		for _, initor := range initors.list {
+			assign.WriteString(name)
+			assign.WriteString("=")
+			assign.WriteString(initor.GenerateCode(file))
+			assign.WriteString("\n")
+		}
+	}
+	return
+}
 func (pkg *Package) GenerateCode() string {
+	// 产生文件；
 	file := createGenedFile()
+
 	var sb strings.Builder
+	// 调用initiator函数
+	define, assign := pkg.generateInitorCode(&file)
+	// 针对每个struct，产生servlet文件；
 	for _, class := range pkg.StructMap {
 		if len(class.servletMethods) > 0 {
 			sb.WriteString(class.GenerateCode(&file))
 		}
 	}
-	if sb.Len() == 0 {
+	if sb.Len()+define.Len()+assign.Len() == 0 {
 		return ""
 	}
 	name := pkg.modPath[len(pkg.Project.Mod):]
@@ -104,7 +121,9 @@ func (pkg *Package) GenerateCode() string {
 	name = strings.ReplaceAll(name, "/", "_")
 	content := ("package gen\n" +
 		file.genImport() +
+		define.String() +
 		"func init" + name + "(router *gin.Engine){\n") +
+		assign.String() +
 		sb.String() +
 		"}\n"
 	os.WriteFile(name+".go", []byte(content), 0660)

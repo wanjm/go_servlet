@@ -7,6 +7,10 @@ type Initiator struct {
 	index    int       //初始化起可以排序；
 }
 
+func (initor *Initiator) GenerateCode(file *GenedFile) string {
+
+}
+
 type Initiators struct {
 	list         map[string]*Initiator
 	defaultValue *Initiator
