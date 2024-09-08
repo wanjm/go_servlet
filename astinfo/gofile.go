@@ -1,9 +1,11 @@
 package astinfo
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -12,8 +14,8 @@ import (
 type GoFile struct {
 	file    *ast.File
 	pkg     *Package
-	path    string //一个go文件的全路径
-	Imports map[string]string
+	path    string            //一个go文件的全路径
+	Imports map[string]string //本go文件import值
 }
 
 func createGoFile(file *ast.File, pkg *Package, path string) GoFile {
@@ -46,6 +48,19 @@ func (goFile *GoFile) parseFile() {
 	}
 }
 
+// 有些第三方的modeName不是最后package的最后一位，所以此处可能找不到；先退出程序，后续看看怎么处理
+func (gofile *GoFile) getImportPath(modeName string, methodName string) string {
+	pkgPath := gofile.Imports[modeName]
+	if len(pkgPath) == 0 {
+		fmt.Printf("failed to find the fullPath of package %s in %s, please add alias %s to your import part to avoid this\n", modeName, methodName, modeName)
+		os.Exit(1)
+	}
+	return pkgPath
+}
+
+// 解析go文件的Import字段，如果有modeName直接使用，否则用pathValue的文件名；
+// 注意此处可能有错误，因为有些package的模块名不是路径的最后一位；
+// 此时只能通过解析原package文件才能解决；否则后面getImportPath就找不到了
 func (goFile *GoFile) parseImport() {
 	astFile := goFile.file
 	for _, importSpec := range astFile.Imports {
@@ -56,6 +71,12 @@ func (goFile *GoFile) parseImport() {
 		} else {
 			name = filepath.Base(pathValue)
 		}
+		// pkg := goFile.pkg.Project.getPackage(pathValue, true)
+		// 此处是第三方package，也可能是本项目的尚未被解析的工程，其modeName为空，先补一个；
+		// 主要是为了解决package的ModeName不是其path的最后的baseName的情况
+		// if len(pkg.modName) == 0 {
+		// 	pkg.modName = name
+		// }
 		goFile.Imports[name] = pathValue
 	}
 }

@@ -33,5 +33,9 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 // 返回值无\n
 func (variable *Variable) genDefinition(file *GenedFile) string {
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
-	return fmt.Sprintf("var %s %s.%s", variable.name, impt.Name, variable.class.Name)
+	pointerMark := ""
+	if variable.isPointer {
+		pointerMark = "*"
+	}
+	return fmt.Sprintf("var %s %s%s.%s", variable.name, pointerMark, impt.Name, variable.class.Name)
 }

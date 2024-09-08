@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"log"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -51,7 +50,8 @@ func (funcManager *FunctionManager) getVariable(class *Struct, varName string) s
 	return inits.getVariableName(varName)
 }
 
-func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
+// 入参直接是函数返回值的对象，跟method.Result[0]相同,为了保持返回值的variable不受影响
+func (funcManager *FunctionManager) addInitiator(initiator Variable) {
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
 	var inits *Initiators
@@ -60,7 +60,7 @@ func (funcManager *FunctionManager) addInitiator(initiator *Variable) {
 		inits = createInitiators()
 		funcManager.initiatorMap[initiator.class] = inits
 	}
-	inits.addInitiator(initiator)
+	inits.addInitiator(&initiator)
 
 }
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
@@ -136,12 +136,13 @@ func (method *Function) Parse() bool {
 		}
 	case INITIATOR:
 		//后面如果需要添加inititor排序，需要新建函数返回Initiator
-		returnStruct := method.parseCreator()
-		method.funcManager.addInitiator(&Variable{
-			name:    method.Results[0].name,
-			creator: method,
-			class:   returnStruct,
-		})
+		method.parseCreator()
+		method.funcManager.addInitiator(*method.Results[0])
+		// &Variable{
+		// 	name:    method.Results[0].name,
+		// 	creator: method,
+		// 	class:   returnStruct,
+		// })
 	case SERVLET:
 		method.parseServlet()
 		method.funcManager.addServlet(method)
@@ -196,13 +197,13 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 		fmt.Printf("function %s has unknow type %V\n", method.Name, field.Type)
 		return nil
 	}
+	// 此处有三种情况
+	// 1. 返回一个本项目存在结构体，mymode.Struct
+	// 2. 返回一个本pkg的结构体，Struct
+	// 3. 返回一个第三方的结构体体
 	modelName := selectorExpr.X.(*ast.Ident).Name
 	structName := selectorExpr.Sel.Name
-	pkgPath := method.goFile.Imports[modelName]
-	if len(pkgPath) == 0 {
-		fmt.Printf("failed to find package %s in %s\n", modelName, method.Name)
-		os.Exit(1)
-	}
+	pkgPath := method.goFile.getImportPath(modelName, method.Name)
 	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
 	var nameOfReturn0 string
 	switch len(field.Names) {
@@ -218,6 +219,7 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 		name:      nameOfReturn0,
 		class:     struct1,
 		isPointer: isPointer,
+		creator:   method,
 	}
 }
 

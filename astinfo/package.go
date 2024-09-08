@@ -30,6 +30,10 @@ type Import struct {
 	Path string
 }
 
+// pkgInfo的ModName没有填写，等到解析package再填写，这样便于发现源代码的bug；
+// 理论上源代码有bug也不需要我们来发现；但是先这么做；
+// 所以对于第三方的Packge，是没有机会生成modeName的；
+// 在最终生成代码时，如果为空，则用modePaht的basename来替换。不影响import语句的生成；
 func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:         project,
