@@ -95,6 +95,11 @@ func (project *Project) GenerateCode() string {
 	content.WriteString("package gen\n")
 	content.WriteString(file.genImport())
 	content.WriteString(`
+	type Response struct {
+		Code    int         "json:\"code\""
+		Message string      "json:\"message,omitempty\""
+		Object  interface{} "json:\"obj\""
+	}
 	func InitAll(router *gin.Engine){
 		initVariable()
 		initRoute(router)

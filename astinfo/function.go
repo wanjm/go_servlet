@@ -226,7 +226,7 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 // receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
 func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
-	file.getImport(method.pkg.Project.getModePath("basic"), "basic")
+	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	codeFmt := `
 	router.POST("%s", func(c *gin.Context) {
 		%s
@@ -235,7 +235,7 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 			return
 		}
 		response, err := %s%s(request, c)
-		c.JSON(200, basic.Response{
+		c.JSON(200, Response{
 			Object:  response,
 			Code:    err.Code,
 			Message: err.Message,
