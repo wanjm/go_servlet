@@ -9,6 +9,7 @@ import (
 )
 
 const TagPrefix = "@plaso"
+const GolangRawType = "rawType"
 
 type Project struct {
 	Path    string              // 项目所在的目录
@@ -24,11 +25,13 @@ func (project *Project) Parse() {
 }
 
 func CreateProject(path string) Project {
-	return Project{
+	project := Project{
 		Path:    path,
 		Package: make(map[string]*Package),
 		// creators: make(map[*Struct]*Initiator),
 	}
+	project.getPackage(GolangRawType, true) //创建原始类型
+	return project
 }
 
 func (project *Project) getPackage(modPath string, create bool) *Package {

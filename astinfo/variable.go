@@ -2,6 +2,8 @@ package astinfo
 
 import "fmt"
 
+// 定义了一个creator的返回值，用于创建变量；
+// 将来Field的注入等Variable来完成
 type Variable struct {
 	class     *Struct
 	isPointer bool

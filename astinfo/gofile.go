@@ -81,12 +81,12 @@ func (goFile *GoFile) parseImport() {
 	}
 }
 
-func (goFile *GoFile) parseStruct(class *ast.TypeSpec) {
+func (goFile *GoFile) parseStruct(typeSpec *ast.TypeSpec) {
 	// 仅关注结构体，暂时不考虑接口
-	if structType, ok := class.Type.(*ast.StructType); ok {
-		_ = structType
-		struct1 := goFile.pkg.getStruct(class.Name.Name, true)
-		struct1.structFound = true
+	if structType, ok := typeSpec.Type.(*ast.StructType); ok {
+		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)
+		class.structFound = true
+		class.parse(structType, goFile)
 	}
 }
 

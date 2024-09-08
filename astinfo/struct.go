@@ -1,6 +1,7 @@
 package astinfo
 
 import (
+	"go/ast"
 	"strings"
 )
 
@@ -13,6 +14,7 @@ type Struct struct {
 	// Import         *Import
 	Package     *Package
 	structFound bool
+	fields      []*Field
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
 }
@@ -22,6 +24,19 @@ func CreateStruct(name string, pkg *Package) *Struct {
 		Name:            name,
 		Package:         pkg,
 		FunctionManager: createFunctionManager(),
+	}
+}
+func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
+	for _, field := range structType.Fields.List {
+		classField := Field{
+			owner: class,
+		}
+		classField.parse(field.Type, goFile)
+		for _, name := range field.Names {
+			oneClassField := classField
+			oneClassField.name = name.Name
+			class.fields = append(class.fields, &oneClassField)
+		}
 	}
 }
 
