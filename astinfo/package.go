@@ -120,7 +120,7 @@ func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	}
 	var name string
 	name = pkg.Project.getRelativeModePath(pkg.modPath)
-	name = strings.ReplaceAll(name, "/", "_")
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
 	var content strings.Builder
 	content.WriteString("package gen\n")
 	content.WriteString(file.genImport())
