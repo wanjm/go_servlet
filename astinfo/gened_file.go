@@ -53,7 +53,10 @@ func (file *GenedFile) genImport() string {
 	var sb strings.Builder
 	sb.WriteString("import (\n")
 	for _, v := range file.genCodeImport {
-		sb.WriteString(v.Name)
+		baseName := filepath.Base(v.Path)
+		if baseName != v.Name {
+			sb.WriteString(v.Name)
+		}
 		sb.WriteString(" \"")
 		sb.WriteString(v.Path)
 		sb.WriteString("\"\n")
