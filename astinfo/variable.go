@@ -17,19 +17,40 @@ type Variable struct {
 // schema.function  creator!=nil, receiverPrefix==""
 // 返回值无\n
 func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) string { //receiverPrefix是带.的
-	if variable.creator != nil {
+	creator := variable.creator
+	// if creator == nil {
+	// 	creator := method.funcManager.getCreator(variable.class)
+	// 	if creator != nil {
+	// 		variable.creator = creator
+	// 		variable.isPointer = creator.Results[0].isPointer
+	// 	}
+	// }
+	if creator != nil {
 		var prefix string
 		if len(receiverPrefix) > 0 {
 			prefix = receiverPrefix
 		} else {
-			pkg := variable.creator.pkg
+			pkg := creator.pkg
 			impt := file.getImport(pkg.modPath, pkg.modName)
 			prefix = impt.Name + "."
 		}
-		return fmt.Sprintf(prefix + variable.creator.Name + "()")
+		return fmt.Sprintf(prefix + creator.Name + "()")
 	}
+
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
-	return fmt.Sprintf("%s.%s{}", impt.Name, variable.class.Name)
+	fieldsValue := make([]string, len(variable.class.fields))
+	for index, field := range variable.class.fields {
+		childVar := Variable{
+			class:     field.class,
+			isPointer: field.isPointer,
+			name:      field.name,
+		}
+		fieldsValue[index] = field.name + ":"
+		_ = childVar
+	}
+	body := ""
+
+	return fmt.Sprintf("%s.%s{%s}", impt.Name, variable.class.Name, body)
 }
 
 // 返回值无\n

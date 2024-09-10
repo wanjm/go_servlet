@@ -27,7 +27,7 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	// 原生类型，或者本package定义的结构体
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
-		pkgPath = GolangRawType
+		pkgPath = goFile.pkg.modPath
 	}
 	// 此处有三种情况
 	// 1. 返回一个本项目存在结构体，mymode.Struct
