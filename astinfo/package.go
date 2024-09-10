@@ -97,6 +97,8 @@ func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.
 			name:      result.name,
 			isPointer: result.isPointer,
 		}
+		//先添加到全局定义中去，可能给variable补名字
+		pkg.Project.addInitiatorVaiable(&variable)
 		define.WriteString(variable.genDefinition(file))
 		define.WriteString("\n")
 		name := variable.name
@@ -104,7 +106,6 @@ func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.
 		assign.WriteString("=")
 		assign.WriteString(variable.generateCode("", file))
 		assign.WriteString("\n")
-		pkg.addInitiatorVaiable(&variable)
 	}
 	return
 }

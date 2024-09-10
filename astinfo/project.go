@@ -12,9 +12,10 @@ const TagPrefix = "@plaso"
 const GolangRawType = "rawType"
 
 type Project struct {
-	Path    string              // 项目所在的目录
-	Mod     string              // 该项目的mode名字
-	Package map[string]*Package //key是mod的全路径
+	Path         string              // 项目所在的目录
+	Mod          string              // 该项目的mode名字
+	Package      map[string]*Package //key是mod的全路径
+	initiatorMap map[*Struct]*Initiators
 	// creators map[*Struct]*Initiator
 }
 
@@ -26,8 +27,9 @@ func (project *Project) Parse() {
 
 func CreateProject(path string) Project {
 	project := Project{
-		Path:    path,
-		Package: make(map[string]*Package),
+		Path:         path,
+		Package:      make(map[string]*Package),
+		initiatorMap: make(map[*Struct]*Initiators),
 		// creators: make(map[*Struct]*Initiator),
 	}
 	project.getPackage(GolangRawType, true) //创建原始类型
@@ -129,4 +131,25 @@ func (project *Project) GenerateCode() string {
 	content.WriteString(routeContent.String())
 	os.WriteFile("project.go", []byte(content.String()), 0660)
 	return ""
+}
+
+func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {
+	// 后续添加排序功能
+	// funcManager.initiator = append(funcManager.initiator, initiator)
+	var inits *Initiators
+	var ok bool
+	if inits, ok = funcManager.initiatorMap[initiator.class]; !ok {
+		inits = createInitiators()
+		funcManager.initiatorMap[initiator.class] = inits
+	}
+	inits.addInitiator(initiator)
+
+}
+
+func (funcManager *Project) getVariable(class *Struct, varName string) string {
+	inits := funcManager.initiatorMap[class]
+	if inits == nil {
+		return ""
+	}
+	return inits.getVariableName(varName)
 }

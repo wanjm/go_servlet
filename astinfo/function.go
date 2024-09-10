@@ -22,16 +22,15 @@ type FunctionManag interface {
 }
 
 type FunctionManager struct {
-	creators     map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
-	initiators   []*Function           //初始化函数
-	servlets     []*Function           //记录路由代码
-	initiatorMap map[*Struct]*Initiators
+	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
+	initiators []*Function           //初始化函数
+	servlets   []*Function           //记录路由代码
+
 }
 
 func createFunctionManager() FunctionManager {
 	return FunctionManager{
-		creators:     make(map[*Struct]*Function),
-		initiatorMap: make(map[*Struct]*Initiators),
+		creators: make(map[*Struct]*Function),
 	}
 }
 
@@ -43,30 +42,11 @@ func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Fun
 	funcManager.creators[childClass] = function
 }
 
-func (funcManager *FunctionManager) getVariable(class *Struct, varName string) string {
-	inits := funcManager.initiatorMap[class]
-	if inits == nil {
-		return ""
-	}
-	return inits.getVariableName(varName)
-}
-
 // 入参直接是函数返回值的对象，跟method.Result[0]相同,为了保持返回值的variable不受影响
 func (funcManager *FunctionManager) addInitiator(initiator *Function) {
 	funcManager.initiators = append(funcManager.initiators, initiator)
 }
-func (funcManager *FunctionManager) addInitiatorVaiable(initiator *Variable) {
-	// 后续添加排序功能
-	// funcManager.initiator = append(funcManager.initiator, initiator)
-	var inits *Initiators
-	var ok bool
-	if inits, ok = funcManager.initiatorMap[initiator.class]; !ok {
-		inits = createInitiators()
-		funcManager.initiatorMap[initiator.class] = inits
-	}
-	inits.addInitiator(initiator)
 
-}
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
 	return funcManager.creators[childClass]
 }
@@ -223,7 +203,7 @@ func (method *Function) parseFieldType(field *ast.Field) *Variable {
 		name:      nameOfReturn0,
 		class:     struct1,
 		isPointer: isPointer,
-		creator:   method,
+		// creator:   method,
 	}
 }
 
@@ -256,6 +236,8 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 	if creator != nil {
 		variable.creator = creator
 		variable.isPointer = creator.Results[0].isPointer
+	} else {
+		variable.isPointer = true
 	}
 	if variable.isPointer {
 		variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"

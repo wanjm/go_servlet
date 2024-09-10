@@ -41,6 +41,7 @@ func (inits *Initiators) addInitiator(initiator *Variable) {
 				initiator.creator.goFile.path,
 			)
 		}
+		initiator.name = name
 		inits.defaultValue = initiator //没有名字的优先作为默认值
 	}
 	// 遇到的第一个初始化函数作为default值；后续如果有没有名字的，会替换；
