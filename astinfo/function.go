@@ -18,28 +18,29 @@ const (
 type FunctionManag interface {
 	addServlet(*Function)
 	addCreator(childClass *Struct, method *Function)
-	addInitiator(initiator *Variable)
+	addInitiator(initiator *Function)
 }
 
 type FunctionManager struct {
-	servletMethods []*Function           //记录路由代码
-	creatorMethods map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
-	initiatorMap   map[*Struct]*Initiators
+	creators     map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
+	initiators   []*Function           //初始化函数
+	servlets     []*Function           //记录路由代码
+	initiatorMap map[*Struct]*Initiators
 }
 
 func createFunctionManager() FunctionManager {
 	return FunctionManager{
-		creatorMethods: make(map[*Struct]*Function),
-		initiatorMap:   make(map[*Struct]*Initiators),
+		creators:     make(map[*Struct]*Function),
+		initiatorMap: make(map[*Struct]*Initiators),
 	}
 }
 
 func (funcManager *FunctionManager) addServlet(function *Function) {
-	funcManager.servletMethods = append(funcManager.servletMethods, function)
+	funcManager.servlets = append(funcManager.servlets, function)
 }
 
 func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Function) {
-	funcManager.creatorMethods[childClass] = function
+	funcManager.creators[childClass] = function
 }
 
 func (funcManager *FunctionManager) getVariable(class *Struct, varName string) string {
@@ -51,7 +52,10 @@ func (funcManager *FunctionManager) getVariable(class *Struct, varName string) s
 }
 
 // 入参直接是函数返回值的对象，跟method.Result[0]相同,为了保持返回值的variable不受影响
-func (funcManager *FunctionManager) addInitiator(initiator Variable) {
+func (funcManager *FunctionManager) addInitiator(initiator *Function) {
+	funcManager.initiators = append(funcManager.initiators, initiator)
+}
+func (funcManager *FunctionManager) addInitiatorVaiable(initiator *Variable) {
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
 	var inits *Initiators
@@ -60,11 +64,11 @@ func (funcManager *FunctionManager) addInitiator(initiator Variable) {
 		inits = createInitiators()
 		funcManager.initiatorMap[initiator.class] = inits
 	}
-	inits.addInitiator(&initiator)
+	inits.addInitiator(initiator)
 
 }
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
-	return funcManager.creatorMethods[childClass]
+	return funcManager.creators[childClass]
 }
 
 type Function struct {
@@ -137,7 +141,7 @@ func (method *Function) Parse() bool {
 	case INITIATOR:
 		//后面如果需要添加inititor排序，需要新建函数返回Initiator
 		method.parseCreator()
-		method.funcManager.addInitiator(*method.Results[0])
+		method.funcManager.addInitiator(method)
 		// &Variable{
 		// 	name:    method.Results[0].name,
 		// 	creator: method,

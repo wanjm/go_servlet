@@ -43,7 +43,7 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 // 注意跟变量注入区分开来
 func (class *Struct) GenerateCode(file *GenedFile) string {
 
-	if len(class.servletMethods) == 0 {
+	if len(class.servlets) == 0 {
 		return ""
 	}
 	receiver := &Variable{
@@ -53,7 +53,7 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	}
 	var sb strings.Builder
 	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file))
-	for _, servlet := range class.servletMethods {
+	for _, servlet := range class.servlets {
 		sb.WriteString(servlet.GenerateCode(file, receiver.name+"."))
 	}
 	return sb.String()

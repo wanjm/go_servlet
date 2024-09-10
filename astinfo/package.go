@@ -89,16 +89,22 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 
 // 生成代码
 func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.Builder) {
-	for _, initors := range pkg.initiatorMap {
-		for _, variable := range initors.list {
-			define.WriteString(variable.genDefinition(file))
-			define.WriteString("\n")
-			name := variable.name
-			assign.WriteString(name)
-			assign.WriteString("=")
-			assign.WriteString(variable.generateCode("", file))
-			assign.WriteString("\n")
+	for _, initor := range pkg.initiators {
+		result := initor.Results[0]
+		variable := Variable{
+			creator:   initor,
+			class:     result.class,
+			name:      result.name,
+			isPointer: result.isPointer,
 		}
+		define.WriteString(variable.genDefinition(file))
+		define.WriteString("\n")
+		name := variable.name
+		assign.WriteString(name)
+		assign.WriteString("=")
+		assign.WriteString(variable.generateCode("", file))
+		assign.WriteString("\n")
+		pkg.addInitiatorVaiable(&variable)
 	}
 	return
 }
@@ -111,7 +117,7 @@ func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	define, assign := pkg.generateInitorCode(&file)
 	// 针对每个struct，产生servlet文件；
 	for _, class := range pkg.StructMap {
-		if len(class.servletMethods) > 0 {
+		if len(class.servlets) > 0 {
 			routerFunction.WriteString(class.GenerateCode(&file))
 		}
 	}
