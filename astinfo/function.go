@@ -13,6 +13,7 @@ const (
 	CREATOR
 	SERVLET
 	INITIATOR
+	URLFILTER
 )
 
 type FunctionManag interface {
@@ -25,6 +26,7 @@ type FunctionManager struct {
 	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
 	initiators []*Function           //初始化函数
 	servlets   []*Function           //记录路由代码
+	urlFilters []*Function           //记录url过滤器
 
 }
 
@@ -36,6 +38,9 @@ func createFunctionManager() FunctionManager {
 
 func (funcManager *FunctionManager) addServlet(function *Function) {
 	funcManager.servlets = append(funcManager.servlets, function)
+}
+func (funcManager *FunctionManager) addUrlFilter(function *Function) {
+	funcManager.urlFilters = append(funcManager.urlFilters, function)
 }
 
 func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Function) {
@@ -98,6 +103,9 @@ func (function *Function) parseComment() int {
 						return SERVLET
 					case "creator":
 						return CREATOR
+					case "urlfilter":
+						function.Url = valuePair[1]
+						return URLFILTER
 					case "initiator":
 						return INITIATOR
 					}
@@ -130,6 +138,8 @@ func (method *Function) Parse() bool {
 	case SERVLET:
 		method.parseServlet()
 		method.funcManager.addServlet(method)
+	case URLFILTER:
+		method.funcManager.addUrlFilter(method)
 	}
 	return true
 }
