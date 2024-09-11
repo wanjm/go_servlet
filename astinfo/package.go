@@ -23,6 +23,8 @@ type Package struct {
 	StructMap map[string]*Struct //key是StructName
 	FunctionManager
 	// file      *GenedFile
+	define strings.Builder
+	assign strings.Builder
 }
 
 type Import struct {
@@ -88,7 +90,9 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 }
 
 // 生成代码
-func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.Builder) {
+func (pkg *Package) generateInitorCode(file *GenedFile) {
+	define := &pkg.define
+	assign := &pkg.assign
 	for _, initor := range pkg.initiators {
 		result := initor.Results[0]
 		variable := Variable{
@@ -107,7 +111,6 @@ func (pkg *Package) generateInitorCode(file *GenedFile) (define, assign strings.
 		assign.WriteString(variable.generateCode("", file))
 		assign.WriteString("\n")
 	}
-	return
 }
 func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	// 产生文件；
@@ -115,13 +118,14 @@ func (pkg *Package) GenerateCode() (initorName, routerName string) {
 
 	var routerFunction strings.Builder
 	// 调用initiator函数
-	define, assign := pkg.generateInitorCode(&file)
 	// 针对每个struct，产生servlet文件；
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {
 			routerFunction.WriteString(class.GenerateCode(&file))
 		}
 	}
+	define := &pkg.define
+	assign := &pkg.assign
 	if define.Len() == 0 && routerFunction.Len() == 0 {
 		return
 	}

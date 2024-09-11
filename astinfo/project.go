@@ -117,6 +117,9 @@ func (project *Project) GenerateCode() string {
 	//生成原始初始化对象，如数据库等；
 	//生成servlet
 	for _, pkg := range project.Package {
+		pkg.generateInitorCode(&file)
+	}
+	for _, pkg := range project.Package {
 		variableName, routerName := pkg.GenerateCode()
 		if len(variableName) > 0 {
 			variableContent.WriteString(variableName + "()\n")
