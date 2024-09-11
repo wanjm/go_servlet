@@ -107,7 +107,32 @@ func (project *Project) GenerateCode() string {
 	}
 	func InitAll(router *gin.Engine){
 		initVariable()
+		registerFilter(router)
 		initRoute(router)
+	}
+
+	type UrlFilter struct {
+		path     string
+		function func(c context.Context, Request *http.Request) (error basic.Error)
+	}
+
+	var urlFilters []*UrlFilter
+	func registerFilter(router *gin.Engine) {
+		router.Use(func(ctx *gin.Context) {
+			path := ctx.Request.URL.Path
+			for _, filter := range urlFilters {
+				if strings.Contains(path, filter.path) {
+					error := filter.function(ctx, ctx.Request)
+					if error.Code != 0 {
+						ctx.JSON(400, gin.H{"error": error.Message})
+						ctx.Abort()
+						return
+					}
+					break
+				}
+			}
+			ctx.Next()
+		})
 	}
 	`)
 	var routeContent strings.Builder
