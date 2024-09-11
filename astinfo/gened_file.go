@@ -14,8 +14,8 @@ type GenedFile struct {
 	genCodeImportNameMap map[string]int     //记录mode的个数；
 }
 
-func createGenedFile() GenedFile {
-	return GenedFile{
+func createGenedFile() *GenedFile {
+	return &GenedFile{
 		genCodeImport:        make(map[string]*Import),
 		genCodeImportNameMap: make(map[string]int),
 	}

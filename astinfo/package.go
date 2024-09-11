@@ -25,6 +25,7 @@ type Package struct {
 	// file      *GenedFile
 	define strings.Builder
 	assign strings.Builder
+	file   *GenedFile
 }
 
 type Import struct {
@@ -90,7 +91,7 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 }
 
 // 生成代码
-func (pkg *Package) generateInitorCode(file *GenedFile) {
+func (pkg *Package) generateInitorCode() {
 	define := &pkg.define
 	assign := &pkg.assign
 	for _, initor := range pkg.initiators {
@@ -103,25 +104,23 @@ func (pkg *Package) generateInitorCode(file *GenedFile) {
 		}
 		//先添加到全局定义中去，可能给variable补名字
 		pkg.Project.addInitiatorVaiable(&variable)
-		define.WriteString(variable.genDefinition(file))
+		define.WriteString(variable.genDefinition(pkg.file))
 		define.WriteString("\n")
 		name := variable.name
 		assign.WriteString(name)
 		assign.WriteString("=")
-		assign.WriteString(variable.generateCode("", file))
+		assign.WriteString(variable.generateCode("", pkg.file))
 		assign.WriteString("\n")
 	}
 }
 func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	// 产生文件；
-	file := createGenedFile()
-
 	var routerFunction strings.Builder
 	// 调用initiator函数
 	// 针对每个struct，产生servlet文件；
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {
-			routerFunction.WriteString(class.GenerateCode(&file))
+			routerFunction.WriteString(class.GenerateCode(pkg.file))
 		}
 	}
 	define := &pkg.define
@@ -134,7 +133,7 @@ func (pkg *Package) GenerateCode() (initorName, routerName string) {
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
 	var content strings.Builder
 	content.WriteString("package gen\n")
-	content.WriteString(file.genImport())
+	content.WriteString(pkg.file.genImport())
 	if define.Len() > 0 {
 		initorName = fmt.Sprintf("init%s_variable", name)
 		content.WriteString(define.String())
