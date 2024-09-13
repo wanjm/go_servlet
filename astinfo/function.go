@@ -168,7 +168,8 @@ func (method *Function) parseServlet() {
 	if len(paramsList) < 2 {
 		log.Fatalf("servlet %s should have at least two parameters", method.Name)
 	}
-	structType := method.parseFieldType(paramsList[0])
+	request := paramsList[1]
+	structType := method.parseFieldType(request)
 	// 仅关心第一个参数；
 	// 暂时没有关心返回值
 	method.Params = append(method.Params, structType)
@@ -230,7 +231,7 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		response, err := %s%s(request, c)
+		response, err := %s%s(c, request)
 		c.JSON(200, Response{
 			Object:  response,
 			Code:    err.Code,
