@@ -16,6 +16,7 @@ type Project struct {
 	Mod          string              // 该项目的mode名字
 	Package      map[string]*Package //key是mod的全路径
 	initiatorMap map[*Struct]*Initiators
+	urlFilters   []*Function //记录url过滤器
 	// creators map[*Struct]*Initiator
 }
 
@@ -36,6 +37,9 @@ func CreateProject(path string) Project {
 	return project
 }
 
+func (project *Project) addUrlFilter(function *Function) {
+	project.urlFilters = append(project.urlFilters, function)
+}
 func (project *Project) getPackage(modPath string, create bool) *Package {
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
@@ -85,42 +89,32 @@ func (project *Project) parseDir(pathStr string) {
 func (project *Project) generateInit(sb *strings.Builder) {
 
 }
-func (project *Project) GenerateCode() string {
-	os.Chdir(project.Path)
-	err := os.Mkdir("gen", 0750)
-	if err != nil && !os.IsExist(err) {
-		log.Fatal(err)
+
+// 根据扫描情况生成filter函数；
+func (project *Project) generateUrlFilter(content *strings.Builder, file *GenedFile) bool {
+	if len(project.urlFilters) == 0 {
+		return false
 	}
-	file := createGenedFile()
-	file.getImport("github.com/gin-gonic/gin", "gin")
+	var result0 = project.urlFilters[0].Results[0]
 	file.getImport("context", "context")
 	file.getImport("net/http", "http")
 	file.getImport("strings", "strings")
-	os.Chdir("gen")
-	var content strings.Builder
-	project.generateInit(&content)
-	//生成函数明
-	content.WriteString("package gen\n")
-	content.WriteString(file.genImport())
-	content.WriteString(`
-	type Response struct {
-		Code    int         "json:\"code\""
-		Message string      "json:\"message,omitempty\""
-		Object  interface{} "json:\"obj\""
-	}
-	func InitAll(router *gin.Engine){
-		initVariable()
-		registerFilter(router)
-		initRoute(router)
-	}
+	file.getImport(result0.class.Package.modPath, result0.class.Package.modName)
 
+	content.WriteString(`
 	type UrlFilter struct {
 		path     string
 		function func(c context.Context, Request *http.Request) (error basic.Error)
 	}
-
-	var urlFilters []*UrlFilter
 	func registerFilter(router *gin.Engine) {
+	`)
+
+	content.WriteString("var urlFilters =[]*UrlFilter{\n")
+	for _, filter := range project.urlFilters {
+		content.WriteString(fmt.Sprintf("&{path:\"%s\", function:%s},\n", filter.Url, filter.Name))
+	}
+	content.WriteString(`
+		}
 		router.Use(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
 			for _, filter := range urlFilters {
@@ -136,6 +130,42 @@ func (project *Project) GenerateCode() string {
 			}
 			ctx.Next()
 		})
+	}
+	`)
+	return true
+}
+func (project *Project) GenerateCode() string {
+	os.Chdir(project.Path)
+	err := os.Mkdir("gen", 0750)
+	if err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+	file := createGenedFile()
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	os.Chdir("gen")
+	var content strings.Builder
+	// project.generateInit(&content)
+
+	//生成函数明
+	content.WriteString("package gen\n")
+	content.WriteString(file.genImport())
+	// 根据情况生成filter函数；
+	callRegister := ""
+	if project.generateUrlFilter(&content, file) {
+		callRegister = "registerFilter(router)\n"
+	}
+	content.WriteString(`
+	type Response struct {
+		Code    int         "json:\"code\""
+		Message string      "json:\"message,omitempty\""
+		Object  interface{} "json:\"obj\""
+	}
+	func InitAll(router *gin.Engine){
+		initVariable()
+	`)
+	content.WriteString(callRegister)
+	content.WriteString(`
+		initRoute(router)
 	}
 	`)
 	var routeContent strings.Builder
