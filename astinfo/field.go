@@ -9,7 +9,7 @@ type Field struct {
 	class     *Struct
 	isPointer bool
 	name      string
-	owner     *Struct
+	ownerInfo string
 }
 
 func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
@@ -22,7 +22,7 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	if innerType, ok := fieldType.(*ast.SelectorExpr); ok {
 		modeName = innerType.X.(*ast.Ident).Name
 		structName = innerType.Sel.Name
-		pkgPath = goFile.getImportPath(modeName, field.owner.Name)
+		pkgPath = goFile.getImportPath(modeName, field.ownerInfo)
 	}
 	// 原生类型，或者本package定义的结构体
 	if innerType, ok := fieldType.(*ast.Ident); ok {

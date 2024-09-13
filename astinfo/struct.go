@@ -29,7 +29,7 @@ func CreateStruct(name string, pkg *Package) *Struct {
 func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 	for _, field := range structType.Fields.List {
 		classField := Field{
-			owner: class,
+			ownerInfo: "struct Name is " + class.Name,
 		}
 		classField.parse(field.Type, goFile)
 		for _, name := range field.Names {

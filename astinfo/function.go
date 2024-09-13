@@ -52,9 +52,9 @@ func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Fu
 }
 
 type Function struct {
-	Name        string      // method name
-	Params      []*Variable // method params, 下标0是request
-	Results     []*Variable // method results（output)
+	Name        string   // method name
+	Params      []*Field // method params, 下标0是request
+	Results     []*Field // method results（output)
 	function    *ast.FuncDecl
 	pkg         *Package
 	goFile      *GoFile
@@ -114,10 +114,11 @@ func (function *Function) parseComment() int {
 
 func (method *Function) Parse() bool {
 	funcType := method.parseComment()
-
+	method.parseParameter()
 	switch funcType {
 	case CREATOR:
-		returnStruct := method.parseCreator()
+		method.parseCreator()
+		returnStruct := method.Results[0].class
 		if returnStruct != nil {
 			method.funcManager.addCreator(returnStruct, method)
 		}
@@ -141,6 +142,34 @@ func (method *Function) Parse() bool {
 
 // 解析参数和返回值
 func (method *Function) parseParameter() bool {
+	paramType := method.function.Type
+	for _, param := range paramType.Params.List {
+		field := Field{
+			ownerInfo: "function Name is " + method.Name,
+		}
+		field.parse(param.Type, method.goFile)
+		//此处可能多个参数 a,b string的格式暂时仅处理一个；
+		if len(param.Names) > 1 {
+			log.Fatalf("function %s has more than one parameter", method.Name)
+		}
+		if len(param.Names) > 0 {
+			field.name = param.Names[0].Name
+		}
+		method.Params = append(method.Params, &field)
+	}
+	if paramType.Results != nil {
+		for _, result := range paramType.Results.List {
+			field := Field{
+				ownerInfo: "function Name is " + method.Name,
+			}
+			field.parse(result.Type, method.goFile)
+
+			if len(result.Names) != 0 {
+				field.name = result.Names[0].Name
+			}
+			method.Results = append(method.Results, &field)
+		}
+	}
 	return true
 }
 
@@ -150,71 +179,14 @@ func (method *Function) parseCreator() *Struct {
 	if len(returnTypeList) != 1 {
 		log.Fatalf("creator %s should have one return value", method.Name)
 	}
-	// 1. 返回其他包的是*ast.SelectorExpr; 返回本包的是什么？
-	// 2. 如何区分返回的是指针还是结构体
-	structType := method.parseFieldType(returnTypeList[0])
-	if structType != nil {
-		struct1 := structType.class
-		method.Results = append(method.Results, structType)
-		return struct1
-	} else {
-		log.Fatalf("creator %s has unknow type %V\n", method.Name, returnTypeList[0].Type)
-	}
 	return nil
 }
+
 func (method *Function) parseServlet() {
 	funcDecl := method.function
 	paramsList := funcDecl.Type.Params.List
 	if len(paramsList) < 2 {
 		log.Fatalf("servlet %s should have at least two parameters", method.Name)
-	}
-	request := paramsList[1]
-	structType := method.parseFieldType(request)
-	// 仅关心第一个参数；
-	// 暂时没有关心返回值
-	method.Params = append(method.Params, structType)
-}
-
-// 解析参数或者返回值的一个变量
-func (method *Function) parseFieldType(field *ast.Field) *Variable {
-	var selectorExpr *ast.SelectorExpr
-	var isPointer bool
-	if fieldType, ok := field.Type.(*ast.StarExpr); ok {
-		if selectorExpr, ok = fieldType.X.(*ast.SelectorExpr); !ok {
-			fmt.Printf("function %s has unknow type %V\n", method.Name, field.Type)
-			return nil
-		}
-		isPointer = true
-	} else if fieldType, ok := field.Type.(*ast.SelectorExpr); ok {
-		isPointer = false
-		selectorExpr = fieldType
-	} else {
-		fmt.Printf("function %s has unknow type %V\n", method.Name, field.Type)
-		return nil
-	}
-	// 此处有三种情况
-	// 1. 返回一个本项目存在结构体，mymode.Struct
-	// 2. 返回一个本pkg的结构体，Struct
-	// 3. 返回一个第三方的结构体体
-	modelName := selectorExpr.X.(*ast.Ident).Name
-	structName := selectorExpr.Sel.Name
-	pkgPath := method.goFile.getImportPath(modelName, method.Name)
-	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
-	var nameOfReturn0 string
-	switch len(field.Names) {
-	case 0:
-		nameOfReturn0 = ""
-	case 1:
-		nameOfReturn0 = field.Names[0].Name
-	default:
-		log.Fatalf("initiator %s should have one or null in %s return value", method.Name, method.goFile.path)
-	}
-	struct1 := pkg.getStruct(structName, true)
-	return &Variable{
-		name:      nameOfReturn0,
-		class:     struct1,
-		isPointer: isPointer,
-		// creator:   method,
 	}
 }
 
@@ -240,8 +212,12 @@ func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) str
 	})
 	`
 	var variableCode string
-	variable := *method.Params[0]
-	variable.name = "request"
+	requestParam := method.Params[1]
+	variable := Variable{
+		isPointer: requestParam.isPointer,
+		class:     requestParam.class,
+		name:      "request",
+	}
 	// 从receiver中查找是否有Creator方法
 	creator := method.funcManager.getCreator(variable.class)
 	if creator != nil {

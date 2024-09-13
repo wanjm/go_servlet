@@ -91,10 +91,11 @@ func (project *Project) generateInit(sb *strings.Builder) {
 }
 
 // 根据扫描情况生成filter函数；
-func (project *Project) generateUrlFilter(content *strings.Builder, file *GenedFile) bool {
+func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
 	if len(project.urlFilters) == 0 {
-		return false
+		return nil
 	}
+	var content strings.Builder
 	var result0 = project.urlFilters[0].Results[0]
 	file.getImport("context", "context")
 	file.getImport("net/http", "http")
@@ -111,7 +112,8 @@ func (project *Project) generateUrlFilter(content *strings.Builder, file *GenedF
 
 	content.WriteString("var urlFilters =[]*UrlFilter{\n")
 	for _, filter := range project.urlFilters {
-		content.WriteString(fmt.Sprintf("&{path:\"%s\", function:%s},\n", filter.Url, filter.Name))
+		impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
+		content.WriteString(fmt.Sprintf("&UrlFilter{path:\"%s\", function:%s.%s},\n", filter.Url, impt.Name, filter.Name))
 	}
 	content.WriteString(`
 		}
@@ -132,7 +134,7 @@ func (project *Project) generateUrlFilter(content *strings.Builder, file *GenedF
 		})
 	}
 	`)
-	return true
+	return &content
 }
 func (project *Project) GenerateCode() string {
 	os.Chdir(project.Path)
@@ -146,14 +148,15 @@ func (project *Project) GenerateCode() string {
 	var content strings.Builder
 	// project.generateInit(&content)
 
+	// 根据情况生成filter函数；
+	callRegister := ""
+	registerContent := project.generateUrlFilter(file)
+	if registerContent != nil {
+		callRegister = "registerFilter(router)\n"
+	}
 	//生成函数明
 	content.WriteString("package gen\n")
 	content.WriteString(file.genImport())
-	// 根据情况生成filter函数；
-	callRegister := ""
-	if project.generateUrlFilter(&content, file) {
-		callRegister = "registerFilter(router)\n"
-	}
 	content.WriteString(`
 	type Response struct {
 		Code    int         "json:\"code\""
@@ -189,6 +192,7 @@ func (project *Project) GenerateCode() string {
 	}
 	variableContent.WriteString("}\n")
 	routeContent.WriteString("}\n")
+	content.WriteString(registerContent.String())
 	content.WriteString(variableContent.String())
 	content.WriteString(routeContent.String())
 	os.WriteFile("project.go", []byte(content.String()), 0660)
