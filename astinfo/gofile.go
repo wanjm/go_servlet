@@ -49,10 +49,11 @@ func (goFile *GoFile) parseFile() {
 }
 
 // 有些第三方的modeName不是最后package的最后一位，所以此处可能找不到；先退出程序，后续看看怎么处理
-func (gofile *GoFile) getImportPath(modeName string, methodName string) string {
+// 返回go文件头中import的modeName对应的全路径
+func (gofile *GoFile) getImportPath(modeName string, info string) string {
 	pkgPath := gofile.Imports[modeName]
 	if len(pkgPath) == 0 {
-		fmt.Printf("failed to find the fullPath of package %s in %s, please add alias %s to your import part to avoid this\n", modeName, methodName, modeName)
+		fmt.Printf("failed to find the fullPath of package %s in %s, please add alias %s to your import part to avoid this\n", modeName, info, modeName)
 		os.Exit(1)
 	}
 	return pkgPath

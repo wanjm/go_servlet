@@ -93,6 +93,9 @@ func (project *Project) GenerateCode() string {
 	}
 	file := createGenedFile()
 	file.getImport("github.com/gin-gonic/gin", "gin")
+	file.getImport("context", "context")
+	file.getImport("net/http", "http")
+	file.getImport("strings", "strings")
 	os.Chdir("gen")
 	var content strings.Builder
 	project.generateInit(&content)
