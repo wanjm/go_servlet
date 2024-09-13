@@ -49,6 +49,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 	}
 
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
+	// 生成结构中每个属性的代码
 	fieldsValue := make([]string, len(variable.class.fields))
 	for index, field := range variable.class.fields {
 		if field.class.Package.modPath == GolangRawType {
