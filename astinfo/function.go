@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"log"
-	"regexp"
 	"strings"
 )
 
@@ -74,6 +73,7 @@ func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 }
 
 // 解析注释
+// @plaso url=xxx ; creator ; urlfilter=xxx
 func (function *Function) parseComment() int {
 	f := function.function
 	function.Name = f.Name.Name
@@ -81,18 +81,16 @@ func (function *Function) parseComment() int {
 	// isCreator := strings.HasSuffix(method.Name, "Creator")
 	if f.Doc != nil {
 		for _, comment := range f.Doc.List {
-			text := strings.Trim(comment.Text, "/ \t") // 去掉前后的空格和斜杠
-			text = strings.ReplaceAll(text, "\t ", "")
+			text := strings.TrimLeft(comment.Text, "/ \t") // 去掉前后的空格和斜杠
 			if strings.HasPrefix(text, TagPrefix) {
-				pattern := regexp.MustCompile(`\s+=\s+`)
-				newString := pattern.ReplaceAllString(text[len(TagPrefix):], "=")
-				commands := strings.Split(newString, " ")
+				newString := text[len(TagPrefix):]
+				commands := strings.Split(newString, ";")
 				for _, command := range commands {
 					valuePair := strings.Split(command, "=")
 					if len(valuePair) == 2 {
-						valuePair[1] = strings.Trim(valuePair[1], "\"'")
+						valuePair[1] = strings.Trim(valuePair[1], " \"'")
 					}
-					switch valuePair[0] {
+					switch strings.Trim(valuePair[0], " \t") {
 					case "url":
 						function.Url = valuePair[1]
 						return SERVLET
