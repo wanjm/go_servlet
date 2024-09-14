@@ -14,6 +14,12 @@ const (
 	INITIATOR
 	URLFILTER
 )
+const TagPrefix = "@plaso"
+const GolangRawType = "rawType"
+const UrlFilter = "urlfilter"
+const Creator = "creator"
+const Url = "url"
+const Initiator = "initiator"
 
 type FunctionManag interface {
 	addServlet(*Function)
@@ -93,15 +99,15 @@ func (function *Function) parseComment() int {
 						valuePair[1] = strings.Trim(valuePair[1], " \t\"'")
 					}
 					switch valuePair[0] {
-					case "url":
+					case Url:
 						function.Url = valuePair[1]
 						return SERVLET
-					case "creator":
+					case Creator:
 						return CREATOR
-					case "urlfilter":
+					case UrlFilter:
 						function.Url = valuePair[1]
 						return URLFILTER
-					case "initiator":
+					case Initiator:
 						return INITIATOR
 					}
 

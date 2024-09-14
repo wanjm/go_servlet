@@ -8,9 +8,6 @@ import (
 	"strings"
 )
 
-const TagPrefix = "@plaso"
-const GolangRawType = "rawType"
-
 type Project struct {
 	Path         string              // 项目所在的目录
 	Mod          string              // 该项目的mode名字
