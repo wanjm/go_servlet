@@ -192,7 +192,9 @@ func (project *Project) GenerateCode() string {
 	}
 	variableContent.WriteString("}\n")
 	routeContent.WriteString("}\n")
-	content.WriteString(registerContent.String())
+	if registerContent != nil {
+		content.WriteString(registerContent.String())
+	}
 	content.WriteString(variableContent.String())
 	content.WriteString(routeContent.String())
 	os.WriteFile("project.go", []byte(content.String()), 0660)
