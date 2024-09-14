@@ -27,6 +27,13 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	// 原生类型，或者本package定义的结构体
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
+		if structName[0] <= 'z' && structName[0] >= 'a' {
+			class := goFile.pkg.Project.getPackage(GolangRawType, false).getStruct(structName, false)
+			if class != nil {
+				field.class = class
+				return
+			}
+		}
 		pkgPath = goFile.pkg.modPath
 	}
 	// 此处有三种情况

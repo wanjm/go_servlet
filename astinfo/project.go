@@ -30,8 +30,27 @@ func CreateProject(path string) Project {
 		initiatorMap: make(map[*Struct]*Initiators),
 		// creators: make(map[*Struct]*Initiator),
 	}
-	project.getPackage(GolangRawType, true) //创建原始类型
+	project.initRawPackage()
 	return project
+}
+func (project *Project) initRawPackage() {
+	rawPkg := project.getPackage(GolangRawType, true) //创建原始类型
+	rawPkg.getStruct("string", true)
+	rawPkg.getStruct("bool", true)
+	rawPkg.getStruct("byte", true)
+	rawPkg.getStruct("rune", true)
+	rawPkg.getStruct("int", true)
+	rawPkg.getStruct("int8", true)
+	rawPkg.getStruct("int16", true)
+	rawPkg.getStruct("int32", true)
+	rawPkg.getStruct("int64", true)
+	rawPkg.getStruct("uint", true)
+	rawPkg.getStruct("uint8", true)
+	rawPkg.getStruct("uint16", true)
+	rawPkg.getStruct("uint32", true)
+	rawPkg.getStruct("uint64", true)
+	rawPkg.getStruct("float32", true)
+	rawPkg.getStruct("float64", true)
 }
 
 func (project *Project) addUrlFilter(function *Function) {
