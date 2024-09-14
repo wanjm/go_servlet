@@ -2,8 +2,6 @@ package astinfo
 
 import (
 	"log"
-	"os"
-	"strings"
 )
 
 // type Initiator struct {
@@ -32,9 +30,9 @@ func createInitiators() *Initiators {
 func (inits *Initiators) addInitiator(initiator *Variable) {
 	name := initiator.name
 	if len(name) == 0 {
-		name = "default_" + initiator.creator.pkg.Project.getRelativeModePath(initiator.creator.pkg.modPath) + "_" + initiator.class.Name
-		initiator.name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
-		if inits.defaultValue != nil && strings.HasPrefix(inits.defaultValue.name, "default_") {
+		// name = "default_" + initiator.creator.pkg.Project.getRelativeModePath(initiator.creator.pkg.modPath) + "_" + initiator.class.Name
+		// initiator.name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
+		if inits.defaultValue != nil && len(inits.defaultValue.name) == 0 {
 			log.Fatalf("only one initiator can have empty name but %s in %s already decleaed when parse in %s",
 				inits.defaultValue.name,
 				inits.defaultValue.creator.goFile.path,

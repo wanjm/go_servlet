@@ -181,6 +181,7 @@ func (project *Project) GenerateCode() string {
 		pkg.file = createGenedFile()
 		pkg.generateInitorCode()
 	}
+
 	for _, pkg := range project.Package {
 		variableName, routerName := pkg.GenerateCode()
 		if len(variableName) > 0 {

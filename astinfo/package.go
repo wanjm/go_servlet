@@ -96,17 +96,24 @@ func (pkg *Package) generateInitorCode() {
 	assign := &pkg.assign
 	for _, initor := range pkg.initiators {
 		result := initor.Results[0]
+
+		name := result.name
+		if len(name) == 0 {
+			name = strings.ReplaceAll(result.class.Package.modPath, ".", "_")
+			name = strings.ReplaceAll(name, "/", "_")
+		}
+
 		variable := Variable{
 			creator:   initor,
 			class:     result.class,
-			name:      result.name,
+			name:      name,
 			isPointer: result.isPointer,
 		}
 		//先添加到全局定义中去，可能给variable补名字
 		pkg.Project.addInitiatorVaiable(&variable)
 		define.WriteString(variable.genDefinition(pkg.file))
 		define.WriteString("\n")
-		name := variable.name
+
 		assign.WriteString(name)
 		assign.WriteString("=")
 		assign.WriteString(variable.generateCode("", pkg.file))
