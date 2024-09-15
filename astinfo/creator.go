@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"log"
+	"strings"
 )
 
 // type Initiator struct {
@@ -46,9 +47,10 @@ func (inits *Initiators) addInitiator(initiator *Variable) {
 	if inits.defaultValue == nil {
 		inits.defaultValue = initiator
 	}
-	inits.list[name] = initiator
+	inits.list[strings.ToLower(name)] = initiator
 }
 func (init *Initiators) getVariableName(name string) string {
+	name = strings.ToLower(name)
 	if variable, ok := init.list[name]; ok {
 		return variable.name
 	}

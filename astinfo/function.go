@@ -14,7 +14,7 @@ const (
 	INITIATOR
 	URLFILTER
 )
-const TagPrefix = "@plaso"
+const TagPrefix = "@goservlet"
 const GolangRawType = "rawType"
 const UrlFilter = "urlfilter"
 const Creator = "creator"

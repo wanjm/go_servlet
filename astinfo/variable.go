@@ -51,6 +51,9 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
 	fieldsValue := make([]string, len(variable.class.fields))
 	for index, field := range variable.class.fields {
+		if field.class.Package.modPath == GolangRawType {
+			continue
+		}
 		childVar := Variable{
 			class:     field.class,
 			isPointer: field.isPointer,
