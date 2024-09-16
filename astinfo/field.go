@@ -14,6 +14,14 @@ type Field struct {
 
 func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
+	// 内置slice类型；
+	if _, ok := fieldType.(*ast.ArrayType); ok {
+		class := goFile.pkg.Project.getPackage(GolangRawType, false).getStruct("array", false)
+		if class != nil {
+			field.class = class
+			return
+		}
+	}
 	if innerType, ok := fieldType.(*ast.StarExpr); ok {
 		field.isPointer = true
 		fieldType = innerType.X

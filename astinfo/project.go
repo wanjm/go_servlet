@@ -51,6 +51,8 @@ func (project *Project) initRawPackage() {
 	rawPkg.getStruct("uint64", true)
 	rawPkg.getStruct("float32", true)
 	rawPkg.getStruct("float64", true)
+	rawPkg.getStruct("array", true)
+	rawPkg.getStruct("map", true)
 }
 
 func (project *Project) addUrlFilter(function *Function) {
