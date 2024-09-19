@@ -120,7 +120,7 @@ func (function *Function) parseComment() int {
 
 func (method *Function) Parse() bool {
 	funcType := method.parseComment()
-	method.parseParameter()
+	method.parseParameter(method.function.Type)
 	switch funcType {
 	case CREATOR:
 		method.parseCreator()
@@ -147,8 +147,7 @@ func (method *Function) Parse() bool {
 }
 
 // 解析参数和返回值
-func (method *Function) parseParameter() bool {
-	paramType := method.function.Type
+func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 	for _, param := range paramType.Params.List {
 		field := Field{
 			ownerInfo: "function Name is " + method.Name,
