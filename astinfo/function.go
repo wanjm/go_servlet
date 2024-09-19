@@ -72,6 +72,7 @@ type Function struct {
 func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 	return &Function{
 		function:    f,
+		Name:        f.Name.Name,
 		pkg:         goFile.pkg,
 		goFile:      goFile,
 		funcManager: &goFile.pkg.FunctionManager,
@@ -79,14 +80,13 @@ func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 }
 
 // 解析注释
+// 直接传入参数CommentGroup, 是为了interface借助于解析Comment;
 // 注释支持的格式为 @plaso url=xxx ; creator ; urlfilter=xxx
-func (function *Function) parseComment() int {
-	f := function.function
-	function.Name = f.Name.Name
+func (function *Function) parseComment(commentGroup *ast.CommentGroup) int {
 	funcType := NOUSAGE
 	// isCreator := strings.HasSuffix(method.Name, "Creator")
-	if f.Doc != nil {
-		for _, comment := range f.Doc.List {
+	if commentGroup != nil {
+		for _, comment := range commentGroup.List {
 			text := strings.TrimLeft(comment.Text, "/ \t") // 去掉前面的空格和斜杠
 			if strings.HasPrefix(text, TagPrefix) {
 				newString := text[len(TagPrefix):]
@@ -119,7 +119,7 @@ func (function *Function) parseComment() int {
 }
 
 func (method *Function) Parse() bool {
-	funcType := method.parseComment()
+	funcType := method.parseComment(method.function.Doc)
 	method.parseParameter(method.function.Type)
 	switch funcType {
 	case CREATOR:
