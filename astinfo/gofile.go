@@ -36,7 +36,7 @@ func (goFile *GoFile) parseFile() {
 					log.Fatalf("解析结构体时，发现多个结构，代码功能不全 %s 下标%d\n", goFile.path, i)
 				}
 
-				goFile.parseType(genDecl.Specs[0].(*ast.TypeSpec))
+				goFile.parseType(genDecl)
 			}
 		} else if funcDecl, ok := decls[i].(*ast.FuncDecl); ok {
 			if funcDecl.Recv == nil {
@@ -82,7 +82,8 @@ func (goFile *GoFile) parseImport() {
 	}
 }
 
-func (goFile *GoFile) parseType(typeSpec *ast.TypeSpec) {
+func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
+	typeSpec := genDecl.Specs[0].(*ast.TypeSpec)
 	// 仅关注结构体，暂时不考虑接口
 	switch typeSpec.Type.(type) {
 	case *ast.InterfaceType:
@@ -91,7 +92,6 @@ func (goFile *GoFile) parseType(typeSpec *ast.TypeSpec) {
 		itface.Parse(interfaceType, goFile)
 		fmt.Printf("interface %s\n", typeSpec.Name.Name)
 		// rpcInterface := goFile.pkg.getRpcInterface(typeSpec.Name.Name, true)
-		return
 	case *ast.StructType:
 		structType := typeSpec.Type.(*ast.StructType)
 		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)

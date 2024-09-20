@@ -94,10 +94,10 @@ func (function *Function) parseComment(commentGroup *ast.CommentGroup) int {
 				for _, command := range commands {
 					valuePair := strings.Split(command, "=") // 参数名和参数值以=分割
 					valuePair[0] = strings.Trim(valuePair[0], " \t")
-					if len(valuePair) == 2 {
-						//去除前后空格和引号
-						valuePair[1] = strings.Trim(valuePair[1], " \t\"'")
-					}
+					// if len(valuePair) == 2 {
+					// 	//去除前后空格和引号
+					// 	valuePair[1] = strings.Trim(valuePair[1], " \t")
+					// }
 					switch valuePair[0] {
 					case Url:
 						function.Url = valuePair[1]
@@ -191,18 +191,18 @@ func (method *Function) parseServlet() {
 	funcDecl := method.function
 	paramsList := funcDecl.Type.Params.List
 	if len(paramsList) < 2 {
-		log.Fatalf("servlet %s should have at least two parameters", method.Name)
+		// 	log.Fatalf("servlet %s should have at least two parameters", method.Name)
 	}
 }
 
 // 产生本方法即成到路由中去的方法
 // file: 表示在那个文件中产生；
 // receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
-func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) string {
+func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	codeFmt := `
-	router.POST("%s", func(c *gin.Context) {
+	router.POST(%s, func(c *gin.Context) {
 		%s
 		if err := c.ShouldBindJSON(request); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})

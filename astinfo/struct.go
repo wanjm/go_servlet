@@ -54,7 +54,7 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	var sb strings.Builder
 	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file))
 	for _, servlet := range class.servlets {
-		sb.WriteString(servlet.GenerateCode(file, receiver.name+"."))
+		sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
 	}
 	return sb.String()
 }
