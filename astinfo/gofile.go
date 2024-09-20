@@ -96,6 +96,7 @@ func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
 		structType := typeSpec.Type.(*ast.StructType)
 		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)
 		class.structFound = true
+		class.parseComment(genDecl.Doc)
 		class.parse(structType, goFile)
 	}
 }

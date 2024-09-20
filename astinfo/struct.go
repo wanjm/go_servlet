@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+const (
+	NONE = iota
+	RpcStruct
+	ServletStruct
+)
+
 type Struct struct {
 	Name string
 	// ImportUrl      string
@@ -15,6 +21,7 @@ type Struct struct {
 	Package     *Package
 	structFound bool
 	fields      []*Field
+	usage       int
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
 }
@@ -38,6 +45,14 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 			class.fields = append(class.fields, &oneClassField)
 		}
 	}
+}
+
+func (class *Struct) parseComment(doc *ast.CommentGroup) string {
+	if doc == nil {
+		return ""
+	}
+
+	return ""
 }
 
 // 注意跟变量注入区分开来
