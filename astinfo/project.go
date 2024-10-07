@@ -131,7 +131,7 @@ func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
 	content.WriteString("var urlFilters =[]*UrlFilter{\n")
 	for _, filter := range project.urlFilters {
 		impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-		content.WriteString(fmt.Sprintf("&UrlFilter{path:\"%s\", function:%s.%s},\n", filter.Url, impt.Name, filter.Name))
+		content.WriteString(fmt.Sprintf("{path:\"%s\", function:%s.%s},\n", filter.Url, impt.Name, filter.Name))
 	}
 	content.WriteString(`
 		}
@@ -141,7 +141,7 @@ func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
 				if strings.Contains(path, filter.path) {
 					error := filter.function(ctx, ctx.Request)
 					if error.Code != 0 {
-						ctx.JSON(400, gin.H{"error": error.Message})
+						ctx.JSON(400, error)
 						ctx.Abort()
 						return
 					}

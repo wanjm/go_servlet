@@ -17,6 +17,7 @@ func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
 			function: f,
 			pkg:      goFile.pkg,
 			goFile:   goFile,
+			Name:     f.Name.Name,
 		},
 	}
 }
