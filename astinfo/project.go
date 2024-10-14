@@ -131,7 +131,7 @@ func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
 	content.WriteString("var urlFilters =[]*UrlFilter{\n")
 	for _, filter := range project.urlFilters {
 		impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-		content.WriteString(fmt.Sprintf("{path:\"%s\", function:%s.%s},\n", filter.Url, impt.Name, filter.Name))
+		content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.Url, impt.Name, filter.Name))
 	}
 	content.WriteString(`
 		}

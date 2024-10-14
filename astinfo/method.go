@@ -12,13 +12,9 @@ type Method struct {
 }
 
 func createMethod(f *ast.FuncDecl, goFile *GoFile) *Method {
+	function := createFunction(f, goFile)
 	return &Method{
-		Function: Function{
-			function: f,
-			pkg:      goFile.pkg,
-			goFile:   goFile,
-			Name:     f.Name.Name,
-		},
+		Function: *function,
 	}
 }
 func (method *Method) Parse() bool {
