@@ -23,13 +23,13 @@ type Variable struct {
 func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) string { //receiverPrefix是带.的
 	creator := variable.creator
 	if creator == nil {
-		//如果没有自带构造器，则先从全局变量寻找, 全局变量仅支持指针
-		if variable.isPointer {
-			name := variable.class.Package.Project.getVariable(variable.class, variable.name)
-			if len(name) > 0 {
-				return name
-			}
+		//如果没有自带构造器，则先从全局变量中寻找, 全部变量目前支持指针和interface，但是此处没有做检查
+		// if variable.isPointer {
+		name := variable.class.Package.Project.getVariable(variable.class, variable.name)
+		if len(name) > 0 {
+			return name
 		}
+		// }
 		creator := variable.class.getCreator(variable.class)
 		if creator != nil {
 			variable.creator = creator
