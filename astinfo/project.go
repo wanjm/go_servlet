@@ -179,7 +179,7 @@ func (project *Project) GenerateCode() string {
 	type Response struct {
 		Code    int         "json:\"code\""
 		Message string      "json:\"message,omitempty\""
-		Object  interface{} "json:\"obj\""
+		Object  interface{} "json:\"obj,omitempty\""
 	}
 	func InitAll(router *gin.Engine){
 		initVariable()

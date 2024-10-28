@@ -208,6 +208,21 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
+	`
+	// 返回值仅有一个是Error；
+	if len(method.Results) == 1 {
+		codeFmt += `
+		err := %s%s(c, request)
+		c.JSON(200, Response{
+			Code:    err.Code,
+			Message: err.Message,
+		})
+	})
+	`
+	} else {
+		// 返回值有两个，一个是response，一个是Error；
+		// 代码暂不检查是否超过两个；
+		codeFmt += `
 		response, err := %s%s(c, request)
 		c.JSON(200, Response{
 			Object:  response,
@@ -216,6 +231,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		})
 	})
 	`
+	}
 	var variableCode string
 	requestParam := method.Params[1]
 	variable := Variable{
