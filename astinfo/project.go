@@ -160,7 +160,7 @@ func (project *Project) GenerateCode() string {
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
-	file := createGenedFile()
+	file := createGenedFile("project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
 	var content strings.Builder
@@ -194,20 +194,25 @@ func (project *Project) GenerateCode() string {
 	routeContent.WriteString("func initRoute(router *gin.Engine) {\n")
 	variableContent.WriteString("func initVariable() {\n")
 	//生成原始初始化对象，如数据库等；
-	//生成servlet
+	//分步完成的原因是保证所有的变量都提前生成，后续注入可以找到变量
 	for _, pkg := range project.Package {
-		pkg.file = createGenedFile()
+		var name string
+		name = project.getRelativeModePath(pkg.modPath)
+		name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
+		pkg.file = createGenedFile(name)
 		pkg.generateInitorCode()
 	}
 
+	//生成servlet
 	for _, pkg := range project.Package {
-		variableName, routerName := pkg.GenerateCode()
+		variableName, routerName := pkg.GenerateStruct()
 		if len(variableName) > 0 {
 			variableContent.WriteString(variableName + "()\n")
 		}
 		if len(routerName) > 0 {
 			routeContent.WriteString(routerName + "(router)\n")
 		}
+		pkg.file.save()
 	}
 	variableContent.WriteString("}\n")
 	routeContent.WriteString("}\n")
