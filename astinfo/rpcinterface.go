@@ -108,12 +108,12 @@ func (rpcInterface *RpcInterface) genRpcClientCode(file *GenedFile, method *Func
 	var results []string
 	var resultP0 = method.Results[0]
 
-	info := "obj"
+	info := "obj "
 	if resultP0.isPointer {
 		info += "*"
 	}
 	oneImport := file.getImport(resultP0.class.Package.modPath, resultP0.class.Package.modName)
-	if oneImport.Name != "" {
+	if oneImport.Name != "rawType" { //跳过系统原生类型
 		info += oneImport.Name + "."
 	}
 	info += resultP0.class.Name
@@ -137,10 +137,10 @@ func (rpcInterface *RpcInterface) genRpcClientCode(file *GenedFile, method *Func
 
 	sb.WriteString(`
 	if res.C != 0 {
-		return nil, nil
+		return 
 	}
 	json.Unmarshal(res.O, obj)
-	return obj, nil
+	return
 }`)
 	file.getImport("encoding/json", "json")
 }
