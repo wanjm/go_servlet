@@ -98,7 +98,13 @@ func (goFile *GoFile) parseVariable(genDecl *ast.GenDecl) {
 			name: name,
 		}
 		field.parse(fieldPair.Type, goFile)
-
+		intface := field.findInterface()
+		if intface != nil {
+			if intface.config != nil {
+				field.typeName = intface.Name
+				field.pkg = goFile.pkg
+			}
+		}
 	}
 }
 func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {

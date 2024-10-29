@@ -11,9 +11,8 @@ const (
 
 // 定义了Struct中的一个个属性
 type Field struct {
-	// class     interface{}
+	class     interface{}
 	typeName  string
-	typeValue int
 	pkg       *Package
 	isPointer bool
 	name      string
@@ -67,4 +66,19 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 }
 func (field *Field) generateCode() string {
 	return "\n"
+}
+
+func (field *Field) findStruct() *Struct {
+	// 此处如果代码错误，会出现class为Interface，但是强转为Struct的情况，让程序报错
+	if field.class == nil {
+		field.class = field.pkg.getStruct(field.typeName, false)
+	}
+	return field.class.(*Struct)
+}
+
+func (field *Field) findInterface() *RpcInterface {
+	if field.class == nil {
+		field.class = field.pkg.getRpcInterface(field.typeName, false)
+	}
+	return field.class.(*RpcInterface)
 }

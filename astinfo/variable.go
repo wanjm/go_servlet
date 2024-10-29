@@ -56,7 +56,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 			continue
 		}
 		childVar := Variable{
-			class:     field.class,
+			class:     field.findStruct(),
 			isPointer: field.isPointer,
 			name:      field.name,
 		}

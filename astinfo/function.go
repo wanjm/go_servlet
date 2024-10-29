@@ -123,7 +123,7 @@ func (method *Function) Parse() bool {
 	switch funcType {
 	case CREATOR:
 		method.parseCreator()
-		returnStruct := method.Results[0].class
+		returnStruct := method.Results[0].findStruct()
 		if returnStruct != nil {
 			method.funcManager.addCreator(returnStruct, method)
 		}
