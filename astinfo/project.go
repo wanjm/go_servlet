@@ -246,7 +246,7 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	content.WriteString("func initRpcClient() {\n")
 	for _, field := range funcManager.initRpcField {
 		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
-		cfg := field.pkg.getRpcInterface(field.typeName, false).config
+		cfg := field.pkg.getInterface(field.typeName, false).config
 		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s+\":\"+%s}}\n", impt.Name, field.name, field.typeName, cfg.Port, cfg.Host))
 	}
 	content.WriteString("}\n")

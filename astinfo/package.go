@@ -18,9 +18,9 @@ type Package struct {
 	// Struct    []*Struct
 	// ModInfo   Import
 	PackageInfo
-	Project         *Project
-	StructMap       map[string]*Struct       //key是StructName
-	RpcInterfaceMap map[string]*RpcInterface //key是Interface 的Name
+	Project      *Project
+	StructMap    map[string]*Struct    //key是StructName
+	InterfaceMap map[string]*Interface //key是Interface 的Name
 	FunctionManager
 	// file      *GenedFile
 	define strings.Builder
@@ -41,7 +41,7 @@ func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:         project,
 		StructMap:       make(map[string]*Struct),
-		RpcInterfaceMap: make(map[string]*RpcInterface),
+		InterfaceMap:    make(map[string]*Interface),
 		FunctionManager: createFunctionManager(),
 		PackageInfo: PackageInfo{
 			modPath: modPath,
@@ -80,13 +80,13 @@ func (pkg *Package) parseMod(file *ast.File, fileName string) {
 	}
 }
 
-func (pkg *Package) getRpcInterface(name string, create bool) *RpcInterface {
-	var class *RpcInterface
+func (pkg *Package) getInterface(name string, create bool) *Interface {
+	var class *Interface
 	var ok bool
-	if class, ok = pkg.RpcInterfaceMap[name]; !ok {
+	if class, ok = pkg.InterfaceMap[name]; !ok {
 		if create {
-			class = CreateRpcInterface(name, pkg)
-			pkg.RpcInterfaceMap[name] = class
+			class = CreateInterface(name, pkg)
+			pkg.InterfaceMap[name] = class
 		}
 	}
 	return class
@@ -139,7 +139,7 @@ func (pkg *Package) generateInitorCode() {
 func (pkg *Package) GenerateRpcClientCode() {
 	var rpcBuilder strings.Builder
 	var hasContent = false
-	for _, rpc := range pkg.RpcInterfaceMap {
+	for _, rpc := range pkg.InterfaceMap {
 		// interface的方法保存在servlets中
 		if rpc.GenerateCode(pkg.file, &rpcBuilder) {
 			hasContent = true

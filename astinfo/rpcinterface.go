@@ -1,7 +1,6 @@
 package astinfo
 
 import (
-	"fmt"
 	"go/ast"
 	"strings"
 )
@@ -24,8 +23,8 @@ func (config *RpcInterfaceConfig) dealValuePair(key, value string) {
 	}
 }
 
-// RpcInterface 代表一个rpc接口，该接口会在GoFile::parseType中被解析出来，放置到对应的Package中
-type RpcInterface struct {
+// Interface 代表一个rpc接口，该接口会在GoFile::parseType中被解析出来，放置到对应的Package中
+type Interface struct {
 	config         *RpcInterfaceConfig
 	Name           string
 	ClientVariable *Field
@@ -34,8 +33,8 @@ type RpcInterface struct {
 	FunctionManager
 }
 
-func CreateRpcInterface(name string, pkg *Package) *RpcInterface {
-	return &RpcInterface{
+func CreateInterface(name string, pkg *Package) *Interface {
+	return &Interface{
 		Name:            name,
 		Package:         pkg,
 		FunctionManager: createFunctionManager(),
@@ -43,15 +42,15 @@ func CreateRpcInterface(name string, pkg *Package) *RpcInterface {
 }
 
 // 目前仅解析注释中的rpcClient配置
-func (rpcInterface *RpcInterface) parseComment(doc *ast.CommentGroup) {
+func (rpcInterface *Interface) parseComment(doc *ast.CommentGroup) {
 	var config = RpcInterfaceConfig{}
 	parseComment(doc, &config)
 	if config.IsRpcClient {
-		fmt.Printf("rpcInterface %s is rpcClient\n", rpcInterface.Name)
+		// fmt.Printf("rpcInterface %s is rpcClient\n", rpcInterface.Name)
 		rpcInterface.config = &config
 	}
 }
-func (rpcInterface *RpcInterface) Parse(astInterface *ast.InterfaceType, goFile *GoFile) {
+func (rpcInterface *Interface) Parse(astInterface *ast.InterfaceType, goFile *GoFile) {
 	// 接口的method的名字是变量名
 	for _, method := range astInterface.Methods.List {
 		function := Function{
@@ -65,7 +64,7 @@ func (rpcInterface *RpcInterface) Parse(astInterface *ast.InterfaceType, goFile 
 	}
 }
 
-func (class *RpcInterface) GenerateCode(file *GenedFile, sb *strings.Builder) bool {
+func (class *Interface) GenerateCode(file *GenedFile, sb *strings.Builder) bool {
 	if len(class.servlets) == 0 || class.config == nil {
 		return false
 	}
@@ -80,7 +79,7 @@ func (class *RpcInterface) GenerateCode(file *GenedFile, sb *strings.Builder) bo
 	return true
 }
 
-func (rpcInterface *RpcInterface) genRpcClientCode(file *GenedFile, method *Function, sb *strings.Builder) {
+func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Function, sb *strings.Builder) {
 	// func (jsinternal *JsinternalStruct) GetTokenDetail(tokenStr string) (obj *basic.TokenUser, err error) {
 	// 	var argument = []interface{}{tokenStr}
 	// 	var res = jsinternal.client.SendRequest("/token/getDetail", argument)

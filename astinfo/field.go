@@ -86,11 +86,11 @@ func (field *Field) findStruct(force bool) *Struct {
 	return nil
 }
 
-func (field *Field) findInterface() *RpcInterface {
+func (field *Field) findInterface() *Interface {
 	if field.class == nil {
-		field.class = field.pkg.getRpcInterface(field.typeName, false)
+		field.class = field.pkg.getInterface(field.typeName, false)
 	}
-	if a, ok := field.class.(*RpcInterface); ok {
+	if a, ok := field.class.(*Interface); ok {
 		return a
 	}
 	return nil
