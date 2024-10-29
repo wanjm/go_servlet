@@ -235,7 +235,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	requestParam := method.Params[1]
 	variable := Variable{
 		isPointer: requestParam.isPointer,
-		class:     requestParam.class,
+		class:     requestParam.class.(*Struct),
 		name:      "request",
 	}
 	// 从receiver中查找是否有Creator方法

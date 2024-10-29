@@ -4,9 +4,17 @@ import (
 	"go/ast"
 )
 
+const (
+	TypeInterface = iota
+	TypeStruct
+)
+
 // 定义了Struct中的一个个属性
 type Field struct {
-	class     *Struct
+	class     interface{}
+	typeName  string
+	typeValue int
+	pkg       *Package
 	isPointer bool
 	name      string
 	ownerInfo string
@@ -53,6 +61,5 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	field.class = pkg.getStruct(structName, true)
 }
 func (field *Field) generateCode() string {
-
 	return "\n"
 }

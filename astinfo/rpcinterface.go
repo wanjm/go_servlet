@@ -99,7 +99,7 @@ func (rpcInterface *RpcInterface) genRpcClientCode(file *GenedFile, method *Func
 		if param.isPointer {
 			info += "*"
 		}
-		info += param.class.Name
+		info += param.typeName
 		params = append(params, info)
 		args = append(args, param.name)
 	}
@@ -113,11 +113,12 @@ func (rpcInterface *RpcInterface) genRpcClientCode(file *GenedFile, method *Func
 	if resultP0.isPointer {
 		info += "*"
 	}
-	oneImport := file.getImport(resultP0.class.Package.modPath, resultP0.class.Package.modName)
+	typePkg := resultP0.pkg
+	oneImport := file.getImport(typePkg.modPath, typePkg.modName)
 	if oneImport.Name != "rawType" { //跳过系统原生类型
 		info += oneImport.Name + "."
 	}
-	info += resultP0.class.Name
+	info += resultP0.typeName
 
 	results = append(results, info)
 	info = "err error"

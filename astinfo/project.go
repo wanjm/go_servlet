@@ -119,7 +119,8 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 	file.getImport("context", "context")
 	file.getImport("net/http", "http")
 	file.getImport("strings", "strings")
-	file.getImport(result0.class.Package.modPath, result0.class.Package.modName)
+	pkg := result0.pkg
+	file.getImport(pkg.modPath, pkg.modName)
 
 	content.WriteString(`
 	type UrlFilter struct {

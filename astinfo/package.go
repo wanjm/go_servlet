@@ -113,7 +113,7 @@ func (pkg *Package) generateInitorCode() {
 
 		name := result.name
 		if len(name) == 0 {
-			name = strings.ReplaceAll(result.class.Package.modPath, ".", "_")
+			name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
 			name = strings.ReplaceAll(name, "/", "_")
 		}
 

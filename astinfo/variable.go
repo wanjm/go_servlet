@@ -52,7 +52,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 	// 生成结构中每个属性的代码
 	fieldsValue := make([]string, 0, len(variable.class.fields))
 	for _, field := range variable.class.fields {
-		if field.class.Package.modPath == GolangRawType {
+		if field.pkg.modPath == GolangRawType {
 			continue
 		}
 		childVar := Variable{
