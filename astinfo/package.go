@@ -103,7 +103,8 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 	return class
 }
 
-// 生成代码
+// 生成initiator的代码
+// 定义initorator的函数，在此被调用，并保存在全局变量中；
 func (pkg *Package) generateInitorCode() {
 	define := &pkg.define
 	assign := &pkg.assign
@@ -148,18 +149,19 @@ func (pkg *Package) GenerateRpcClientCode() {
 		pkg.file.addBuilder(&rpcBuilder)
 	}
 }
-func (pkg *Package) GenerateStruct() (initorName, routerName string) {
+func (pkg *Package) GenerateStruct() {
 	var name = pkg.file.name
 	define := &pkg.define
 	assign := &pkg.assign
 	if define.Len() > 0 {
 		var content = strings.Builder{}
 		content.WriteString(define.String())
-		initorName = fmt.Sprintf("init%s_variable", name)
+		initorName := fmt.Sprintf("init%s_variable", name)
 		content.WriteString("func " + initorName + "(){\n")
 		content.WriteString(assign.String())
 		content.WriteString("}\n")
 		pkg.file.addBuilder(&content)
+		pkg.Project.addInitVariable(initorName)
 	}
 
 	// 产生文件；
@@ -167,7 +169,7 @@ func (pkg *Package) GenerateStruct() (initorName, routerName string) {
 	// 调用initiator函数
 	// 针对每个struct，产生servlet文件；
 	var hasRouter = false
-	routerName = fmt.Sprintf("init%s_router", name)
+	routerName := fmt.Sprintf("init%s_router", name)
 	routerFunction.WriteString("func " + routerName + "(router *gin.Engine){\n")
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {
@@ -178,8 +180,6 @@ func (pkg *Package) GenerateStruct() (initorName, routerName string) {
 	routerFunction.WriteString("}\n")
 	if hasRouter {
 		pkg.file.addBuilder(&routerFunction)
-	} else {
-		routerName = ""
+		pkg.Project.addInitRoute(routerName)
 	}
-	return
 }

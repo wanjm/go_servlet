@@ -15,6 +15,10 @@ type Project struct {
 	initiatorMap map[*Struct]*Initiators
 	urlFilters   []*Function //记录url过滤器
 	// creators map[*Struct]*Initiator
+	initFuncs            []string //initAll 调用的init函数；
+	initVariableFuns     []string //initVriable 调用的init函数；
+	initRouteFuns        []string //initRoute 调用的init函数；
+	initRpcClientExpress []string //initRpcClient 调用的init函数；主要是给每个initClient调用
 }
 
 func (project *Project) Parse() {
@@ -104,14 +108,11 @@ func (project *Project) parseDir(pathStr string) {
 		}
 	}
 }
-func (project *Project) generateInit(sb *strings.Builder) {
-
-}
 
 // 根据扫描情况生成filter函数；
-func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
+func (project *Project) generateUrlFilter(file *GenedFile) {
 	if len(project.urlFilters) == 0 {
-		return nil
+		return
 	}
 	var content strings.Builder
 	var result0 = project.urlFilters[0].Results[0]
@@ -152,9 +153,25 @@ func (project *Project) generateUrlFilter(file *GenedFile) *strings.Builder {
 		})
 	}
 	`)
-	return &content
+	file.addBuilder(&content)
+	project.initFuncs = append(project.initFuncs, "registerFilter(router)")
 }
-func (project *Project) GenerateCode() string {
+
+// file:
+// 	package gen
+//	import
+
+// 	Response
+// 	InitAll
+
+// UrlFilter
+// registerFilter
+// initVariable
+// initRoute
+
+// RpcClient
+// initRpcClient
+func (project *Project) GenerateCode() {
 	os.Chdir(project.Path)
 	err := os.Mkdir("gen", 0750)
 	if err != nil && !os.IsExist(err) {
@@ -163,36 +180,12 @@ func (project *Project) GenerateCode() string {
 	file := createGenedFile("project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
-	var content strings.Builder
 	// project.generateInit(&content)
 
 	// 根据情况生成filter函数；
-	callRegister := ""
-	registerContent := project.generateUrlFilter(file)
-	if registerContent != nil {
-		callRegister = "registerFilter(router)\n"
-	}
+
 	//生成函数明
-	content.WriteString("package gen\n")
-	content.WriteString(file.genImport())
-	content.WriteString(`
-	type Response struct {
-		Code    int         "json:\"code\""
-		Message string      "json:\"message,omitempty\""
-		Object  interface{} "json:\"obj,omitempty\""
-	}
-	func InitAll(router *gin.Engine){
-		initVariable()
-	`)
-	content.WriteString(callRegister)
-	content.WriteString(`
-		initRoute(router)
-	}
-	`)
-	var routeContent strings.Builder
-	var variableContent strings.Builder
-	routeContent.WriteString("func initRoute(router *gin.Engine) {\n")
-	variableContent.WriteString("func initVariable() {\n")
+
 	//生成原始初始化对象，如数据库等；
 	//分步完成的原因是保证所有的变量都提前生成，后续注入可以找到变量
 	for _, pkg := range project.Package {
@@ -203,27 +196,18 @@ func (project *Project) GenerateCode() string {
 		pkg.generateInitorCode()
 	}
 
-	//生成servlet
 	for _, pkg := range project.Package {
-		variableName, routerName := pkg.GenerateStruct()
-		if len(variableName) > 0 {
-			variableContent.WriteString(variableName + "()\n")
-		}
-		if len(routerName) > 0 {
-			routeContent.WriteString(routerName + "(router)\n")
-		}
+		pkg.GenerateStruct()
 		pkg.GenerateRpcClientCode()
 		pkg.file.save()
 	}
-	variableContent.WriteString("}\n")
-	routeContent.WriteString("}\n")
-	if registerContent != nil {
-		content.WriteString(registerContent.String())
-	}
-	content.WriteString(variableContent.String())
-	content.WriteString(routeContent.String())
-	os.WriteFile("project.go", []byte(content.String()), 0660)
-	return ""
+
+	project.genInitVariable(file)
+	project.generateUrlFilter(file)
+	project.genRpcClientVariable(file)
+	project.genInitRoute(file)
+	project.genInitAll(file)
+	file.save()
 }
 
 func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {
@@ -245,4 +229,111 @@ func (funcManager *Project) getVariable(class *Struct, varName string) string {
 		return ""
 	}
 	return inits.getVariableName(varName)
+}
+
+func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
+	if len(funcManager.initRpcClientExpress) == 0 {
+		return
+	}
+
+	file.getImport("bytes", "bytes")
+	file.getImport("encoding/json", "json")
+	file.getImport("fmt", "fmt")
+	file.getImport("net/http", "http")
+
+	var content strings.Builder
+	content.WriteString("func initRpcClient() {\n")
+	for _, fun := range funcManager.initRpcClientExpress {
+		content.WriteString(fun + "\n")
+	}
+	content.WriteString("}\n")
+	content.WriteString(`
+	type RpcResult struct {
+	C int             "json:\"c\""
+	O json.RawMessage "json:\"o\""
+}
+type RpcClient struct {
+	Prefix string
+}
+
+func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult {
+	content, marError := json.Marshal(array)
+	if marError != nil {
+		fmt.Printf("%v\n", marError)
+		return RpcResult{C: 1, O: nil}
+	}
+	resp, error := http.Post(client.Prefix+name, "", bytes.NewReader(content))
+	if error != nil {
+		fmt.Printf("%v\n", error)
+	}
+	var res = RpcResult{}
+	dec := json.NewDecoder(resp.Body)
+	dec.Decode(&res)
+	return res
+}
+	`)
+	file.addBuilder(&content)
+	funcManager.addInitFuncs("initRpcClient()")
+}
+
+func (project *Project) addInitVariable(variableName string) {
+	project.initVariableFuns = append(project.initVariableFuns, variableName+"()")
+}
+
+func (project *Project) addInitRoute(routerName string) {
+	project.initRouteFuns = append(project.initRouteFuns, routerName+"(router)")
+}
+
+func (project *Project) addInitFuncs(rpcClientName string) {
+	project.initFuncs = append(project.initFuncs, rpcClientName)
+}
+
+// initRpcClientFuns
+func (project *Project) addInitRpcClientFuns(rpcClientName string) {
+	project.initRpcClientExpress = append(project.initRpcClientExpress, rpcClientName)
+}
+
+func (project *Project) genInitRoute(file *GenedFile) {
+	if len(project.initRouteFuns) == 0 {
+		return
+	}
+	var content strings.Builder
+	content.WriteString("func initRoute(router *gin.Engine) {\n")
+	for _, fun := range project.initRouteFuns {
+		content.WriteString(fun + "\n")
+	}
+	content.WriteString("}\n")
+	file.addBuilder(&content)
+	project.addInitFuncs("initRoute(router)")
+}
+
+func (Project *Project) genInitVariable(file *GenedFile) {
+	if len(Project.initVariableFuns) == 0 {
+		return
+	}
+	var content strings.Builder
+	content.WriteString("func initVariable() {\n")
+	for _, fun := range Project.initVariableFuns {
+		content.WriteString(fun + "\n")
+	}
+	content.WriteString("}\n")
+	file.addBuilder(&content)
+	Project.addInitFuncs("initVariable()")
+}
+
+func (Project *Project) genInitAll(file *GenedFile) {
+	var content strings.Builder
+	content.WriteString(`
+	type Response struct {
+		Code    int         "json:\"code\""
+		Message string      "json:\"message,omitempty\""
+		Object  interface{} "json:\"obj,omitempty\""
+	}
+	func InitAll(router *gin.Engine){
+	`)
+	for _, fun := range Project.initFuncs {
+		content.WriteString(fun + "\n")
+	}
+	content.WriteString("}\n")
+	file.addBuilder(&content)
 }

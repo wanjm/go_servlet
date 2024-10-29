@@ -11,10 +11,10 @@ import (
 type GenedFile struct {
 	// pkg *Package
 	// for gen code
-	name                 string             //文件名,without go;
+	name                 string             //文件名,没有go后缀
 	genCodeImport        map[string]*Import //产生code时会引入其他模块的内容，此时每个模块需要一个名字；但是名字还不能重复
 	genCodeImportNameMap map[string]int     //记录mode的个数；
-	contents             []*strings.Builder
+	contents             []*strings.Builder //本文件内容的多个片段，参见save函数
 }
 
 func createGenedFile(fileName string) *GenedFile {
@@ -25,6 +25,10 @@ func createGenedFile(fileName string) *GenedFile {
 	}
 }
 
+// 保存文件
+// 生成package语句
+// 生成import语句
+// 按照file.contents的顺序，生成文件内容
 func (file *GenedFile) save() {
 	if len(file.contents) == 0 {
 		return
@@ -39,6 +43,7 @@ func (file *GenedFile) save() {
 		osfile.WriteString(content.String())
 	}
 }
+
 func (file *GenedFile) addBuilder(builder *strings.Builder) {
 	file.contents = append(file.contents, builder)
 }
