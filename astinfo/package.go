@@ -59,7 +59,8 @@ func (pkg *Package) Parse(path string) {
 		return
 	}
 	for packName, pack := range packageMap {
-		fmt.Printf("begin parse %s with %s\n", packName, path)
+		_ = packName
+		// fmt.Printf("begin parse %s with %s\n", packName, path)
 		for filename, f := range pack.Files {
 			pkg.parseMod(f, filename)
 			gofile := createGoFile(f, pkg, filename)
@@ -136,13 +137,16 @@ func (pkg *Package) generateInitorCode() {
 // 生成rpc客户端的代码
 func (pkg *Package) GenerateRpcClientCode() {
 	var rpcBuilder strings.Builder
+	var hasContent = false
 	for _, rpc := range pkg.RpcInterfaceMap {
 		// interface的方法保存在servlets中
-		if len(rpc.servlets) > 0 {
-			rpc.GenerateCode(pkg.file, &rpcBuilder)
+		if rpc.GenerateCode(pkg.file, &rpcBuilder) {
+			hasContent = true
 		}
 	}
-	pkg.file.addBuilder(&rpcBuilder)
+	if hasContent {
+		pkg.file.addBuilder(&rpcBuilder)
+	}
 }
 func (pkg *Package) GenerateStruct() (initorName, routerName string) {
 	var name = pkg.file.name

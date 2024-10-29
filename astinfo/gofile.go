@@ -89,6 +89,7 @@ func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
 	case *ast.InterfaceType:
 		interfaceType := typeSpec.Type.(*ast.InterfaceType)
 		itface := goFile.pkg.getRpcInterface(typeSpec.Name.Name, true)
+		itface.parseComment(genDecl.Doc)
 		itface.Parse(interfaceType, goFile)
 		fmt.Printf("interface %s\n", typeSpec.Name.Name)
 	case *ast.StructType:

@@ -61,7 +61,7 @@ func (project *Project) addUrlFilter(function *Function) {
 func (project *Project) getPackage(modPath string, create bool) *Package {
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
-		fmt.Printf("create package %s\n", modPath)
+		// fmt.Printf("create package %s\n", modPath)
 		pkg = CreatePackage(project, modPath)
 		project.Package[modPath] = pkg
 	}
@@ -89,7 +89,7 @@ func (project *Project) getModePath(pathStr string) string {
 }
 
 func (project *Project) parseDir(pathStr string) {
-	fmt.Printf("parse %s\n", pathStr)
+	// fmt.Printf("parse %s\n", pathStr)
 	pkg := project.getPackage(project.getModePath(pathStr), true)
 	pkg.Parse(pathStr)
 	list, err := os.ReadDir(pathStr)
@@ -212,6 +212,7 @@ func (project *Project) GenerateCode() string {
 		if len(routerName) > 0 {
 			routeContent.WriteString(routerName + "(router)\n")
 		}
+		pkg.GenerateRpcClientCode()
 		pkg.file.save()
 	}
 	variableContent.WriteString("}\n")
