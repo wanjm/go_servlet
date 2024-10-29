@@ -103,6 +103,7 @@ func (goFile *GoFile) parseVariable(genDecl *ast.GenDecl) {
 			if intface.config != nil {
 				field.typeName = intface.Name
 				field.pkg = goFile.pkg
+				goFile.pkg.Project.addInitRpcClientFuns(&field)
 			}
 		}
 	}

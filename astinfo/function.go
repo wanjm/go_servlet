@@ -122,8 +122,9 @@ func (method *Function) Parse() bool {
 	method.parseParameter(method.function.Type)
 	switch funcType {
 	case CREATOR:
+		//当将来有Creator方法返回位interface是，此处的findStruct(true)需要修改
 		method.parseCreator()
-		returnStruct := method.Results[0].findStruct()
+		returnStruct := method.Results[0].findStruct(true)
 		if returnStruct != nil {
 			method.funcManager.addCreator(returnStruct, method)
 		}
@@ -235,7 +236,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	requestParam := method.Params[1]
 	variable := Variable{
 		isPointer: requestParam.isPointer,
-		class:     requestParam.class.(*Struct),
+		class:     requestParam.findStruct(true),
 		name:      "request",
 	}
 	// 从receiver中查找是否有Creator方法

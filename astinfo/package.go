@@ -119,7 +119,7 @@ func (pkg *Package) generateInitorCode() {
 
 		variable := Variable{
 			creator:   initor,
-			class:     result.findStruct(),
+			class:     result.findStruct(true),
 			name:      name,
 			isPointer: result.isPointer,
 		}

@@ -28,6 +28,7 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 		if class != nil {
 			field.typeName = "array"
 			field.pkg = rawPkg
+			field.class = class
 			return
 		}
 	}
@@ -50,6 +51,7 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 			if class != nil {
 				field.typeName = structName
 				field.pkg = rawPkg
+				field.class = class
 				return
 			}
 		}
@@ -60,6 +62,9 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	// 2. 返回一个第三方的结构体体
 	// 3. 返回一个本pkg的结构体，Struct
 	// 4. 原生类型，int，string
+
+	// 由于一个变量定义类型可能是结构体，也可能是接口，所以此处不能直接获取结构体
+	// 而且此处不尝试获取接口或者结构，是为了避免由于代码写法不同，导致的可能找不到，可能找到的情况；简化了代码场景；
 	field.pkg = goFile.pkg.Project.getPackage(pkgPath, true)
 	field.typeName = structName
 	// field.class = pkg.getStruct(structName, true)
@@ -68,17 +73,25 @@ func (field *Field) generateCode() string {
 	return "\n"
 }
 
-func (field *Field) findStruct() *Struct {
+// 再给vairable赋值时，强行force为true；
+// 为什么有些是结构体，不过不强行却找不到：如外部结构体，由于本代码不会扫描到外部结构体，所以找不到；
+func (field *Field) findStruct(force bool) *Struct {
 	// 此处如果代码错误，会出现class为Interface，但是强转为Struct的情况，让程序报错
 	if field.class == nil {
-		field.class = field.pkg.getStruct(field.typeName, false)
+		field.class = field.pkg.getStruct(field.typeName, force)
 	}
-	return field.class.(*Struct)
+	if a, ok := field.class.(*Struct); ok {
+		return a
+	}
+	return nil
 }
 
 func (field *Field) findInterface() *RpcInterface {
 	if field.class == nil {
 		field.class = field.pkg.getRpcInterface(field.typeName, false)
 	}
-	return field.class.(*RpcInterface)
+	if a, ok := field.class.(*RpcInterface); ok {
+		return a
+	}
+	return nil
 }

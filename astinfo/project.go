@@ -15,10 +15,10 @@ type Project struct {
 	initiatorMap map[*Struct]*Initiators
 	urlFilters   []*Function //记录url过滤器
 	// creators map[*Struct]*Initiator
-	initFuncs            []string //initAll 调用的init函数；
-	initVariableFuns     []string //initVriable 调用的init函数；
-	initRouteFuns        []string //initRoute 调用的init函数；
-	initRpcClientExpress []string //initRpcClient 调用的init函数；主要是给每个initClient调用
+	initFuncs        []string //initAll 调用的init函数；
+	initVariableFuns []string //initVriable 调用的init函数；
+	initRouteFuns    []string //initRoute 调用的init函数；
+	initRpcField     []*Field //initRpcClient 调用的init函数；主要是给每个initClient调用
 }
 
 func (project *Project) Parse() {
@@ -233,7 +233,7 @@ func (funcManager *Project) getVariable(class *Struct, varName string) string {
 }
 
 func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
-	if len(funcManager.initRpcClientExpress) == 0 {
+	if len(funcManager.initRpcField) == 0 {
 		return
 	}
 
@@ -244,8 +244,10 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 
 	var content strings.Builder
 	content.WriteString("func initRpcClient() {\n")
-	for _, fun := range funcManager.initRpcClientExpress {
-		content.WriteString(fun + "\n")
+	for _, field := range funcManager.initRpcField {
+		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
+		cfg := field.pkg.getRpcInterface(field.typeName, false).config
+		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s+\":\"+%s}}\n", impt.Name, field.name, field.typeName, cfg.Port, cfg.Host))
 	}
 	content.WriteString("}\n")
 	content.WriteString(`
@@ -290,8 +292,8 @@ func (project *Project) addInitFuncs(rpcClientName string) {
 }
 
 // initRpcClientFuns
-func (project *Project) addInitRpcClientFuns(rpcClientName string) {
-	project.initRpcClientExpress = append(project.initRpcClientExpress, rpcClientName)
+func (project *Project) addInitRpcClientFuns(rpcField *Field) {
+	project.initRpcField = append(project.initRpcField, rpcField)
 }
 
 func (project *Project) genInitRoute(file *GenedFile) {

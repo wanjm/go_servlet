@@ -76,7 +76,7 @@ func (class *RpcInterface) GenerateCode(file *GenedFile, sb *strings.Builder) bo
 	for _, servlet := range class.servlets {
 		class.genRpcClientCode(file, servlet, sb)
 	}
-	class.Package.Project.addInitRpcClientFuns("")
+
 	return true
 }
 
