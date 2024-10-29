@@ -31,12 +31,20 @@ func (goFile *GoFile) parseFile() {
 	decls := goFile.file.Decls
 	for i := 0; i < len(decls); i++ {
 		if genDecl, ok := decls[i].(*ast.GenDecl); ok {
-			if genDecl.Tok == token.TYPE {
-				if len(genDecl.Specs) > 1 {
-					log.Fatalf("解析结构体时，发现多个结构，代码功能不全 %s 下标%d\n", goFile.path, i)
+			// type interface, type struct
+			switch genDecl.Tok {
+			case token.TYPE:
+				{
+					if len(genDecl.Specs) > 1 {
+						log.Fatalf("解析结构体时，发现多个结构，代码功能不全 %s 下标%d\n", goFile.path, i)
+					}
+					goFile.parseType(genDecl)
 				}
-
-				goFile.parseType(genDecl)
+			case token.VAR:
+				{
+					//解析package中的全局变量
+					goFile.parseVariable(genDecl)
+				}
 			}
 		} else if funcDecl, ok := decls[i].(*ast.FuncDecl); ok {
 			if funcDecl.Recv == nil {
@@ -82,6 +90,17 @@ func (goFile *GoFile) parseImport() {
 	}
 }
 
+// 解析package中的全局变量
+func (goFile *GoFile) parseVariable(genDecl *ast.GenDecl) {
+	if fieldPair, ok := genDecl.Specs[0].(*ast.ValueSpec); ok {
+		name := fieldPair.Names[0].Name
+		var field = Field{
+			name: name,
+		}
+		field.parse(fieldPair.Type, goFile)
+
+	}
+}
 func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
 	typeSpec := genDecl.Specs[0].(*ast.TypeSpec)
 	// 仅关注结构体，暂时不考虑接口
