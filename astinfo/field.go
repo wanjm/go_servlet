@@ -11,7 +11,7 @@ const (
 
 // 定义了Struct中的一个个属性
 type Field struct {
-	class     interface{}
+	// class     interface{}
 	typeName  string
 	typeValue int
 	pkg       *Package
@@ -24,9 +24,11 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
 	if _, ok := fieldType.(*ast.ArrayType); ok {
-		class := goFile.pkg.Project.getPackage(GolangRawType, false).getStruct("array", false)
+		rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
+		class := rawPkg.getStruct("array", false)
 		if class != nil {
-			field.class = class
+			field.typeName = "array"
+			field.pkg = rawPkg
 			return
 		}
 	}
@@ -44,9 +46,11 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
 		if structName[0] <= 'z' && structName[0] >= 'a' {
-			class := goFile.pkg.Project.getPackage(GolangRawType, false).getStruct(structName, false)
+			rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
+			class := rawPkg.getStruct(structName, false)
 			if class != nil {
-				field.class = class
+				field.typeName = structName
+				field.pkg = rawPkg
 				return
 			}
 		}
@@ -57,8 +61,9 @@ func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
 	// 2. 返回一个第三方的结构体体
 	// 3. 返回一个本pkg的结构体，Struct
 	// 4. 原生类型，int，string
-	pkg := goFile.pkg.Project.getPackage(pkgPath, true)
-	field.class = pkg.getStruct(structName, true)
+	field.pkg = goFile.pkg.Project.getPackage(pkgPath, true)
+	field.typeName = structName
+	// field.class = pkg.getStruct(structName, true)
 }
 func (field *Field) generateCode() string {
 	return "\n"
