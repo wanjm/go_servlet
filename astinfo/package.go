@@ -22,10 +22,7 @@ type Package struct {
 	StructMap    map[string]*Struct    //key是StructName
 	InterfaceMap map[string]*Interface //key是Interface 的Name
 	FunctionManager
-	// file      *GenedFile
-	define strings.Builder
-	assign strings.Builder
-	file   *GenedFile
+	file *GenedFile
 }
 
 type Import struct {
@@ -106,8 +103,16 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 // 生成initiator的代码
 // 定义initorator的函数，在此被调用，并保存在全局变量中；
 func (pkg *Package) generateInitorCode() {
-	define := &pkg.define
-	assign := &pkg.assign
+	if len(pkg.initiators) == 0 {
+		return
+	}
+	define := strings.Builder{}
+	assign := strings.Builder{}
+	pkg.file.addBuilder(&define)
+	pkg.file.addBuilder(&assign)
+	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
+	assign.WriteString("func " + initorName + "(){\n")
+	pkg.Project.addInitVariable(initorName)
 	for _, initor := range pkg.initiators {
 		result := initor.Results[0]
 
@@ -133,6 +138,7 @@ func (pkg *Package) generateInitorCode() {
 		assign.WriteString(variable.generateCode("", pkg.file))
 		assign.WriteString("\n")
 	}
+	assign.WriteString("}\n")
 }
 
 // 生成rpc客户端的代码
@@ -149,27 +155,12 @@ func (pkg *Package) GenerateRpcClientCode() {
 		pkg.file.addBuilder(&rpcBuilder)
 	}
 }
-func (pkg *Package) GenerateStruct() {
-	var name = pkg.file.name
-	define := &pkg.define
-	assign := &pkg.assign
-	if define.Len() > 0 {
-		var content = strings.Builder{}
-		content.WriteString(define.String())
-		initorName := fmt.Sprintf("init%s_variable", name)
-		content.WriteString("func " + initorName + "(){\n")
-		content.WriteString(assign.String())
-		content.WriteString("}\n")
-		pkg.file.addBuilder(&content)
-		pkg.Project.addInitVariable(initorName)
-	}
-
+func (pkg *Package) GenerateRouteCode() {
 	// 产生文件；
 	var routerFunction = strings.Builder{}
-	// 调用initiator函数
 	// 针对每个struct，产生servlet文件；
 	var hasRouter = false
-	routerName := fmt.Sprintf("init%s_router", name)
+	routerName := fmt.Sprintf("init%s_router", pkg.file.name)
 	routerFunction.WriteString("func " + routerName + "(router *gin.Engine){\n")
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {

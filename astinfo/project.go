@@ -198,7 +198,7 @@ func (project *Project) GenerateCode() {
 	}
 
 	for _, pkg := range project.Package {
-		pkg.GenerateStruct()
+		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
 		pkg.file.save()
 	}
