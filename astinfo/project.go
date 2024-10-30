@@ -9,16 +9,16 @@ import (
 )
 
 type Project struct {
-	Path         string              // 项目所在的目录
-	Mod          string              // 该项目的mode名字
-	Package      map[string]*Package //key是mod的全路径
-	initiatorMap map[*Struct]*Initiators
-	urlFilters   []*Function //记录url过滤器
+	Path       string              // 项目所在的目录
+	Mod        string              // 该项目的mode名字
+	Package    map[string]*Package //key是mod的全路径
+	urlFilters []*Function         //记录url过滤器函数
 	// creators map[*Struct]*Initiator
-	initFuncs        []string //initAll 调用的init函数；
-	initVariableFuns []string //initVriable 调用的init函数；
-	initRouteFuns    []string //initRoute 调用的init函数；
-	initRpcField     []*Field //initRpcClient 调用的init函数；主要是给每个initClient调用
+	initFuncs        []string                //initAll 调用的init函数；
+	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
+	initRouteFuns    []string                //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
+	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
 }
 
 func (project *Project) Parse() {
