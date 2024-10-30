@@ -1,6 +1,7 @@
 package astinfo
 
 import (
+	"fmt"
 	"go/ast"
 	"strings"
 )
@@ -20,6 +21,8 @@ func (config *RpcInterfaceConfig) dealValuePair(key, value string) {
 		config.Port = value
 	case "rpcClient":
 		config.IsRpcClient = true
+	default:
+		fmt.Printf("unkonw key value pair => key=%s,value=%s\n", key, value)
 	}
 }
 
@@ -65,6 +68,7 @@ func (rpcInterface *Interface) Parse(astInterface *ast.InterfaceType, goFile *Go
 }
 
 func (class *Interface) GenerateCode(file *GenedFile, sb *strings.Builder) bool {
+	// fmt.Printf("gen interface code servlet %d and conf=nil %v \n", len(class.servlets), (class.config == nil))
 	if len(class.servlets) == 0 || class.config == nil {
 		return false
 	}
