@@ -1,6 +1,7 @@
 package astinfo
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -19,19 +20,36 @@ type Project struct {
 	initRouteFuns    []string                //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
+	initMain         bool
 }
 
 func (project *Project) Parse() {
 	//读取go.mod
 	project.Mod = "gitlab.plaso.cn/bisshow"
+	modFile, err := os.Open("go.mod")
+	if err != nil {
+		log.Panicf("failed to open go.mod with error %s\n", err.Error())
+		return
+	}
+	defer modFile.Close()
+	scanner := bufio.NewScanner(modFile)
+	// 读取第一行
+	if scanner.Scan() {
+		firstLine := scanner.Text()
+		project.Mod = strings.Trim(strings.Split(firstLine, " ")[1], " \t")
+	} else {
+		log.Panicf("failed to read go.mod, please run 'go mod init' first\n")
+		return
+	}
 	project.parseDir(project.Path)
 }
 
-func CreateProject(path string) Project {
+func CreateProject(path string, init bool) Project {
 	project := Project{
 		Path:         path,
 		Package:      make(map[string]*Package),
 		initiatorMap: make(map[*Struct]*Initiators),
+		initMain:     init,
 		// creators: make(map[*Struct]*Initiator),
 	}
 	project.initRawPackage()
@@ -173,7 +191,7 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 // RpcClient
 // initRpcClient
 func (project *Project) GenerateCode() {
-	os.Chdir(project.Path)
+	project.genInitMain()
 	err := os.Mkdir("gen", 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
@@ -202,7 +220,7 @@ func (project *Project) GenerateCode() {
 		pkg.GenerateRpcClientCode()
 		pkg.file.save()
 	}
-
+	project.genBasicCode(file)
 	project.genInitVariable(file)
 	project.generateUrlFilter(file)
 	project.genRpcClientVariable(file)
@@ -324,7 +342,7 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	Project.addInitFuncs("initVariable()")
 }
 
-func (Project *Project) genInitAll(file *GenedFile) {
+func (Project *Project) genBasicCode(file *GenedFile) {
 	file.getImport("github.com/gin-contrib/cors", "cors")
 	var content strings.Builder
 	content.WriteString(`
@@ -333,6 +351,15 @@ func (Project *Project) genInitAll(file *GenedFile) {
 		Message string      "json:\"message,omitempty\""
 		Object  interface{} "json:\"obj,omitempty\""
 	}
+		type Error struct {
+	Code    int    "json:\"code\""
+	Message string  "json:\"message\""
+}
+
+func (error *Error) Error() string {
+	return error.Message
+}
+
 	type Config struct {
 		CertFile string
 		KeyFile string
@@ -354,6 +381,12 @@ func (Project *Project) genInitAll(file *GenedFile) {
 			router.Run(config.Addr)
 		}
 	}
+	`)
+	file.addBuilder(&content)
+}
+func (Project *Project) genInitAll(file *GenedFile) {
+	var content strings.Builder
+	content.WriteString(`
 	func initAll(router *gin.Engine){
 	`)
 	for _, fun := range Project.initFuncs {
@@ -361,4 +394,35 @@ func (Project *Project) genInitAll(file *GenedFile) {
 	}
 	content.WriteString("}\n")
 	file.addBuilder(&content)
+}
+
+func (project *Project) genInitMain() {
+	//如果是空目录，或者init为true；则生成main.go 和basic.go的Error类；
+	if !project.initMain {
+		return
+	}
+	var content strings.Builder
+	content.WriteString("package main\n")
+	//	import "gitlab.plaso.cn/message-center/gen"
+	content.WriteString("import (\"" + project.Mod + "/gen\")\n")
+	content.WriteString(`
+func main() {
+	gen.Run(gen.Config{
+		Cors: true,
+		Addr: ":8080",
+	})
+}
+	`)
+	os.WriteFile("main.go", []byte(content.String()), 0660)
+	os.Mkdir("basic", 0750)
+	os.WriteFile("basic/message.go", []byte(`package basic
+type Error struct {
+	Code    int    "json:\"code\""
+	Message string "json:\"message\""
+}
+
+func (error *Error) Error() string {
+	return error.Message
+}
+	`), 0660)
 }
