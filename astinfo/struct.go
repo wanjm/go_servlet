@@ -70,7 +70,12 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	// 定义strutct对象；
 	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file) + "\n")
 	for _, servlet := range class.servlets {
-		sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
+		switch servlet.comment.funcType {
+		case SERVLET:
+			sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
+		case WEBSOCKET:
+			sb.WriteString(servlet.GenerateWebsocket(file, receiver.name+"."))
+		}
 	}
 	return sb.String()
 }

@@ -12,15 +12,18 @@ const (
 	CREATOR
 	SERVLET
 	INITIATOR
-	URLFILTER
+	FILTER
+	WEBSOCKET
 )
 
 const UrlFilter = "urlfilter"
-const Creator = "creator"
 const Url = "url"
+
+const Creator = "creator"
 const Initiator = "initiator"
 const Websocket = "websocket"
 const Filter = "filter"
+const Servlet = "servlet"
 
 type FunctionManag interface {
 	addServlet(*Function)
@@ -73,16 +76,23 @@ func (function *functionComment) dealValuePair(key, value string) {
 	switch key {
 	case Url:
 		function.Url = value
-		function.funcType = SERVLET
+		if function.funcType == NOUSAGE {
+			//默认是servlet
+			function.funcType = SERVLET
+		}
 	case Creator:
 		function.funcType = CREATOR
 	case UrlFilter:
 		function.Url = value
-		function.funcType = URLFILTER
+		function.funcType = FILTER
 	case Filter:
-		function.funcType = URLFILTER
+		function.funcType = FILTER
+	case Servlet:
+		function.funcType = SERVLET
 	case Initiator:
 		function.funcType = INITIATOR
+	case Websocket:
+		function.funcType = WEBSOCKET
 	}
 }
 
@@ -130,10 +140,9 @@ func (method *Function) Parse() bool {
 		// 	creator: method,
 		// 	class:   returnStruct,
 		// })
-	case SERVLET:
-		method.parseServlet()
+	case SERVLET, WEBSOCKET:
 		method.funcManager.addServlet(method)
-	case URLFILTER:
+	case FILTER:
 		method.pkg.Project.addUrlFilter(method)
 	}
 	return true
@@ -186,6 +195,15 @@ func (method *Function) parseServlet() {
 	if len(paramsList) < 2 {
 		// 	log.Fatalf("servlet %s should have at least two parameters", method.Name)
 	}
+}
+
+func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string) string {
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	var sb = strings.Builder{}
+	sb.WriteString("router.GET(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString(receiverPrefix + method.Name + "(c,c.Writer,c.Request)\n")
+	sb.WriteString("})\n")
+	return sb.String()
 }
 
 // 产生本方法即成到路由中去的方法
