@@ -12,7 +12,7 @@ type Comment interface {
 	dealValuePair(key, value string)
 }
 
-// 注释支持的格式为 @plaso url=xxx ; creator ; urlfilter=xxx
+// 注释支持的格式为 @plaso url=xxx ; creator ; filter
 func parseComment(commentGroup *ast.CommentGroup, commentor Comment) {
 	if commentGroup != nil {
 		for _, comment := range commentGroup.List {

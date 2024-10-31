@@ -325,6 +325,7 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 }
 
 func (Project *Project) genInitAll(file *GenedFile) {
+	file.getImport("github.com/gin-contrib/cors", "cors")
 	var content strings.Builder
 	content.WriteString(`
 	type Response struct {
@@ -332,7 +333,28 @@ func (Project *Project) genInitAll(file *GenedFile) {
 		Message string      "json:\"message,omitempty\""
 		Object  interface{} "json:\"obj,omitempty\""
 	}
-	func InitAll(router *gin.Engine){
+	type Config struct {
+		CertFile string
+		KeyFile string
+		Cors bool
+		Addr string
+	}
+	func Run(config Config){
+		var	router  *gin.Engine = gin.Default()
+		if(config.Cors){
+			config := cors.DefaultConfig()
+			config.AllowAllOrigins = true
+			config.AllowHeaders = append(config.AllowHeaders, "*")
+			router.Use(cors.New(config))
+		}
+		initAll(router)
+		if config.CertFile != "" {
+			router.RunTLS(config.Addr, config.CertFile, config.KeyFile)
+		} else {
+			router.Run(config.Addr)
+		}
+	}
+	func initAll(router *gin.Engine){
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
