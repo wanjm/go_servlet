@@ -60,7 +60,7 @@ func (rpcInterface *Interface) Parse(astInterface *ast.InterfaceType, goFile *Go
 			Name:   method.Names[0].Name,
 			goFile: goFile,
 		}
-		function.parseComment(method.Doc)
+		parseComment(method.Doc, &function.comment)
 		function.parseParameter(method.Type.(*ast.FuncType))
 		rpcInterface.addServlet(&function)
 		_ = method
@@ -137,7 +137,7 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 
 	// 生成调用代码
 	sb.WriteString("var res = receiver.client.SendRequest(")
-	sb.WriteString(method.Url)
+	sb.WriteString(method.comment.Url)
 	sb.WriteString(", argument)\n")
 
 	sb.WriteString(`

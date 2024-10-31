@@ -19,6 +19,8 @@ const UrlFilter = "urlfilter"
 const Creator = "creator"
 const Url = "url"
 const Initiator = "initiator"
+const Websocket = "websocket"
+const Filter = "filter"
 
 type FunctionManag interface {
 	addServlet(*Function)
@@ -55,6 +57,35 @@ func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Fu
 	return funcManager.creators[childClass]
 }
 
+const (
+	POST = "POST"
+	GET  = "GET"
+)
+
+type functionComment struct {
+	Url          string
+	method       string
+	isDeprecated bool
+	funcType     int
+}
+
+func (function *functionComment) dealValuePair(key, value string) {
+	switch key {
+	case Url:
+		function.Url = value
+		function.funcType = SERVLET
+	case Creator:
+		function.funcType = CREATOR
+	case UrlFilter:
+		function.Url = value
+		function.funcType = URLFILTER
+	case Filter:
+		function.funcType = URLFILTER
+	case Initiator:
+		function.funcType = INITIATOR
+	}
+}
+
 type Function struct {
 	Name        string   // method name
 	Params      []*Field // method params, 下标0是request
@@ -64,8 +95,9 @@ type Function struct {
 	goFile      *GoFile
 	funcManager *FunctionManager
 
-	Url        string // method url from comments;
-	deprecated bool
+	comment functionComment
+	// Url        string // method url from comments;
+	// deprecated bool
 }
 
 func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
@@ -78,49 +110,10 @@ func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 	}
 }
 
-// 解析注释
-// 直接传入参数CommentGroup, 是为了interface借助于解析Comment;
-// 注释支持的格式为 @plaso url=xxx ; creator ; urlfilter=xxx
-func (function *Function) parseComment(commentGroup *ast.CommentGroup) int {
-	funcType := NOUSAGE
-	// isCreator := strings.HasSuffix(method.Name, "Creator")
-	if commentGroup != nil {
-		for _, comment := range commentGroup.List {
-			text := strings.TrimLeft(comment.Text, "/ \t") // 去掉前面的空格和斜杠
-			if strings.HasPrefix(text, TagPrefix) {
-				newString := text[len(TagPrefix):]
-				commands := strings.Split(newString, ";") // 多个参数以;分割
-				for _, command := range commands {
-					valuePair := strings.Split(command, "=") // 参数名和参数值以=分割
-					valuePair[0] = strings.Trim(valuePair[0], " \t")
-					// if len(valuePair) == 2 {
-					// 	//去除前后空格和引号
-					// 	valuePair[1] = strings.Trim(valuePair[1], " \t")
-					// }
-					switch valuePair[0] {
-					case Url:
-						function.Url = valuePair[1]
-						return SERVLET
-					case Creator:
-						return CREATOR
-					case UrlFilter:
-						function.Url = valuePair[1]
-						return URLFILTER
-					case Initiator:
-						return INITIATOR
-					}
-
-				}
-			}
-		}
-	}
-	return funcType
-}
-
 func (method *Function) Parse() bool {
-	funcType := method.parseComment(method.function.Doc)
+	parseComment(method.function.Doc, &method.comment)
 	method.parseParameter(method.function.Type)
-	switch funcType {
+	switch method.comment.funcType {
 	case CREATOR:
 		//当将来有Creator方法返回位interface是，此处的findStruct(true)需要修改
 		method.parseCreator()
@@ -202,7 +195,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	var sb strings.Builder
-	sb.WriteString("router.POST(" + method.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
 	var requestName string
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
