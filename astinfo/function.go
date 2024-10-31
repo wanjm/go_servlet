@@ -201,61 +201,55 @@ func (method *Function) parseServlet() {
 func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
-	codeFmt := `
-	router.POST(%s, func(c *gin.Context) {
-		%s
-		if err := c.ShouldBindJSON(request); err != nil {
+	var sb strings.Builder
+	sb.WriteString("router.POST(" + method.Url + ", func(c *gin.Context) {\n")
+	var requestName string
+	//  有request请求，需要解析request，有些情况下，服务端不需要request；
+	if len(method.Params) >= 2 {
+		var variableCode string
+		requestParam := method.Params[1]
+		variable := Variable{
+			isPointer: requestParam.isPointer,
+			class:     requestParam.findStruct(true),
+			name:      "request",
+		}
+		// 从receiver中查找是否有Creator方法
+		creator := method.funcManager.getCreator(variable.class)
+		if creator != nil {
+			variable.creator = creator
+			variable.isPointer = creator.Results[0].isPointer
+		} else {
+			variable.isPointer = true
+		}
+		if variable.isPointer {
+			variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
+		} else {
+			variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
+		}
+		sb.WriteString(variableCode)
+		sb.WriteString(`if err := c.ShouldBindJSON(request); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-	`
+		`)
+		requestName = ",request"
+	}
+	var objString string
+	var objResult string
 	// 返回值仅有一个是Error；
-	if len(method.Results) == 1 {
-		codeFmt += `
-		err := %s%s(c, request)
+	if len(method.Results) == 2 {
+		objResult = "response,"
+		objString = "Object:response,"
+	}
+	// 返回值有两个，一个是response，一个是Error；
+	// 代码暂不检查是否超过两个；
+	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
 		c.JSON(200, Response{
+			%s
 			Code:    err.Code,
 			Message: err.Message,
 		})
-	})
-	`
-	} else {
-		// 返回值有两个，一个是response，一个是Error；
-		// 代码暂不检查是否超过两个；
-		codeFmt += `
-		response, err := %s%s(c, request)
-		c.JSON(200, Response{
-			Object:  response,
-			Code:    err.Code,
-			Message: err.Message,
-		})
-	})
-	`
-	}
-	var variableCode string
-	requestParam := method.Params[1]
-	variable := Variable{
-		isPointer: requestParam.isPointer,
-		class:     requestParam.findStruct(true),
-		name:      "request",
-	}
-	// 从receiver中查找是否有Creator方法
-	creator := method.funcManager.getCreator(variable.class)
-	if creator != nil {
-		variable.creator = creator
-		variable.isPointer = creator.Results[0].isPointer
-	} else {
-		variable.isPointer = true
-	}
-	if variable.isPointer {
-		variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
-	} else {
-		variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
-	}
-
-	return fmt.Sprintf(codeFmt,
-		method.Url,
-		variableCode,
-		receiverPrefix, method.Name,
-	)
+	`, objResult, receiverPrefix, method.Name, requestName, objString))
+	sb.WriteString("})\n")
+	return sb.String()
 }

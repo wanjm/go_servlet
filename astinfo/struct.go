@@ -68,7 +68,7 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	}
 	var sb strings.Builder
 	// 定义strutct对象；
-	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file))
+	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file) + "\n")
 	for _, servlet := range class.servlets {
 		sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
 	}
