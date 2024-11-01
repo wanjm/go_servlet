@@ -78,6 +78,9 @@ func (comment *functionComment) dealValuePair(key, value string) {
 	case Servlet:
 		comment.serverName = value
 		comment.funcType = SERVLET
+	case Prpc:
+		comment.serverName = value
+		comment.funcType = PRPC
 	case Initiator:
 		comment.funcType = INITIATOR
 	case Websocket:
@@ -196,12 +199,38 @@ func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string
 	return sb.String()
 }
 
+func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix string) string {
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	var sb strings.Builder
+	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	var realParams []string
+	for i := 1; i < len(method.Params); i++ {
+		param := method.Params[i]
+		name := fmt.Sprintf("arg%d", i)
+		sb.WriteString("var " + name + " " + param.class.(*Struct).Name + "\n")
+		realParams = append(realParams, name)
+	}
+
+	sb.WriteString(fmt.Sprintf("var request=[]interface{%s}", strings.Join(realParams, ",&"[1:])))
+	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	`)
+	sb.WriteString(fmt.Sprintf(`response, err := %s%s(c%s)
+		c.JSON(200, RpcResult{
+			C:err.Code,
+			O:response,
+		})
+	`, receiverPrefix, method.Name, strings.Join(realParams, ",")))
+	return sb.String()
+}
+
 // 产生本方法即成到路由中去的方法
 // file: 表示在那个文件中产生；
 // receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
 func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
-	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
 	var sb strings.Builder
 	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
 	var requestName string

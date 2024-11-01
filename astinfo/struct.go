@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	NONE = iota
-	PrpcStruct
-	ServletStruct
-)
-
 // /@goservlet prpc=xxx; servlet=xxx; servle; prpc
 type structComment struct {
 	groupName  string
@@ -20,14 +14,14 @@ type structComment struct {
 func (comment *structComment) dealValuePair(key, value string) {
 	switch key {
 	case Prpc:
-		comment.serverType = PrpcStruct
+		comment.serverType = PRPC
 		if len(value) == 0 {
 			comment.groupName = Prpc
 		} else {
 			comment.groupName = value
 		}
 	case Servlet:
-		comment.serverType = ServletStruct
+		comment.serverType = SERVLET
 		if len(value) == 0 {
 			comment.groupName = Servlet
 		} else {
@@ -99,6 +93,8 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 		switch servlet.comment.funcType {
 		case SERVLET:
 			sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
+		case PRPC:
+			sb.WriteString(servlet.GenerateRpcServlet(file, receiver.name+"."))
 		case WEBSOCKET:
 			sb.WriteString(servlet.GenerateWebsocket(file, receiver.name+"."))
 		}
