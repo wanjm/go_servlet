@@ -70,6 +70,9 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.Url = value
 		comment.funcType = FILTER
 	case Filter:
+		if len(value) == 0 {
+			value = Prpc
+		}
 		comment.serverName = value
 		comment.funcType = FILTER
 	case Servlet:
@@ -79,6 +82,8 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.funcType = INITIATOR
 	case Websocket:
 		comment.funcType = WEBSOCKET
+	default:
+		fmt.Printf("unknown key '%s' in function comment\n", key)
 	}
 }
 

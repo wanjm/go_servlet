@@ -83,17 +83,17 @@ func (project *Project) initRawPackage() {
 }
 
 func (project *Project) addServer(name string) {
-	if _, ok := project.servers[name]; ok {
-		fmt.Printf("server %s already exists\n", name)
+	if _, ok := project.servers[name]; !ok {
+		project.servers[name] = &server{name: name}
 		return
 	}
-	project.servers[name] = &server{name: name}
 }
 func (project *Project) addUrlFilter(function *Function, serverName string) {
-	if server, ok := project.servers[serverName]; ok {
-		server.urlFilters = append(server.urlFilters, function)
+	if s, ok := project.servers[serverName]; ok {
+		s.urlFilters = append(s.urlFilters, function)
 	} else {
-		fmt.Printf("server %s not found\n", serverName)
+		project.servers[serverName] = &server{name: serverName, urlFilters: []*Function{function}}
+		// fmt.Printf("server '%s' not found for filter\n", serverName)
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
@@ -164,12 +164,14 @@ func (server *server) genInitRoute(file *GenedFile) {
 // 根据扫描情况生成filter函数；
 func (project *Project) generateUrlFilter(file *GenedFile) {
 	var content strings.Builder
+
 	file.getImport("context", "context")
 	file.getImport("net/http", "http")
 	file.getImport("strings", "strings")
 	content.WriteString(`
 	type UrlFilter struct {
 		path     string
+		//此处的basic.Error在代码生成时是写死的，还不够灵活，且宿主工程包中需要定义一个filter，否则代码会报告basic找不到
 		function func(c context.Context, Request *http.Request) (error basic.Error)
 	}
 	func registerFilter(router *gin.Engine, urlFilters []*UrlFilter) {
@@ -240,7 +242,6 @@ func (project *Project) GenerateCode() {
 	project.genBasicCode(file)
 	project.genInitVariable(file)
 	project.genRpcClientVariable(file)
-	project.generateUrlFilter(file)
 	// project.genInitRoute(file)
 	project.genInitAll(file)
 	file.save()
@@ -319,10 +320,10 @@ func (project *Project) addInitVariable(variableName string) {
 }
 
 func (project *Project) addInitRoute(routerName string, serverName string) {
-	if server, ok := project.servers[serverName]; ok {
-		server.initRouteFuns = append(server.initRouteFuns, routerName)
+	if s, ok := project.servers[serverName]; ok {
+		s.initRouteFuns = append(s.initRouteFuns, routerName)
 	} else {
-		fmt.Printf("server %s not found\n", serverName)
+		project.servers[serverName] = &server{name: serverName, initRouteFuns: []string{routerName}}
 	}
 }
 
@@ -358,14 +359,6 @@ func (Project *Project) genBasicCode(file *GenedFile) {
 		Message string      "json:\"message,omitempty\""
 		Object  interface{} "json:\"obj,omitempty\""
 	}
-		type Error struct {
-	Code    int    "json:\"code\""
-	Message string  "json:\"message\""
-}
-
-func (error *Error) Error() string {
-	return error.Message
-}
 
 type Config struct {
 	CertFile string
@@ -417,11 +410,14 @@ func (Project *Project) genInitAll(file *GenedFile) {
 	// 	},
 	// 	routerInitors: []func(*gin.Engine){},
 	// }
+	var oneResult *Field
+
 	for _, server := range Project.servers {
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
 		content.WriteString("filters: []*UrlFilter{\n")
 		for _, filter := range server.urlFilters {
 			impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
+			oneResult = filter.Results[0]
 			content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.comment.Url, impt.Name, filter.Name))
 		}
 		content.WriteString("},\n")
@@ -432,8 +428,13 @@ func (Project *Project) genInitAll(file *GenedFile) {
 		}
 		content.WriteString("},\n")
 		content.WriteString("}\n")
-
 	}
+	if oneResult != nil {
+		// 动态方式添加 basic.Error;
+		pkg := oneResult.pkg
+		file.getImport(pkg.modPath, pkg.modName)
+	}
+	Project.generateUrlFilter(file)
 	content.WriteString("}\n")
 	file.addBuilder(&content)
 }
@@ -452,7 +453,7 @@ func main() {
 	gen.Run(gen.Config{
 		Cors: true,
 		Addr: ":8080",
-	})
+	},"servlet")
 }
 	`)
 	os.WriteFile("main.go", []byte(content.String()), 0660)
