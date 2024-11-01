@@ -157,20 +157,24 @@ func (pkg *Package) GenerateRpcClientCode() {
 }
 func (pkg *Package) GenerateRouteCode() {
 	// 产生文件；
-	var routerFunction = strings.Builder{}
 	// 针对每个struct，产生servlet文件；
-	var hasRouter = false
-	routerName := fmt.Sprintf("init%s_router", pkg.file.name)
-	routerFunction.WriteString("func " + routerName + "(router *gin.Engine){\n")
+	var builders = make(map[string]*strings.Builder)
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {
-			routerFunction.WriteString(class.GenerateCode(pkg.file))
-			hasRouter = true
+			routerName := "init_" + pkg.file.name + "_" + class.comment.groupName + "_router"
+			var builder *strings.Builder
+			var ok bool
+			if builder, ok = builders[routerName]; !ok {
+				builder = &strings.Builder{}
+				builders[routerName] = builder
+				builder.WriteString("func " + routerName + "(router *gin.Engine){\n")
+				pkg.file.addBuilder(builder)
+				pkg.Project.addInitRoute(routerName, class.comment.groupName)
+			}
+			builder.WriteString(class.GenerateCode(pkg.file))
 		}
 	}
-	routerFunction.WriteString("}\n")
-	if hasRouter {
-		pkg.file.addBuilder(&routerFunction)
-		pkg.Project.addInitRoute(routerName)
+	for _, builder := range builders {
+		builder.WriteString("}\n")
 	}
 }

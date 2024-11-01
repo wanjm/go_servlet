@@ -7,9 +7,34 @@ import (
 
 const (
 	NONE = iota
-	RpcStruct
+	PrpcStruct
 	ServletStruct
 )
+
+// /@goservlet prpc=xxx; servlet=xxx; servle; prpc
+type structComment struct {
+	groupName  string
+	serverType int // NONE, RpcStruct, ServletStruct
+}
+
+func (comment *structComment) dealValuePair(key, value string) {
+	switch key {
+	case Prpc:
+		comment.serverType = PrpcStruct
+		if len(value) == 0 {
+			comment.groupName = Prpc
+		} else {
+			comment.groupName = value
+		}
+	case Servlet:
+		comment.serverType = ServletStruct
+		if len(value) == 0 {
+			comment.groupName = Servlet
+		} else {
+			comment.groupName = value
+		}
+	}
+}
 
 type Struct struct {
 	Name string
@@ -22,6 +47,7 @@ type Struct struct {
 	structFound bool
 	fields      []*Field
 	usage       int
+	comment     structComment
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
 }

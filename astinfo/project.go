@@ -9,23 +9,27 @@ import (
 	"strings"
 )
 
+type server struct {
+	name          string
+	initRouteFuns []string    //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	urlFilters    []*Function //记录url过滤器函数
+	initFuncs     []string    //initAll 调用的init函数；
+}
 type Project struct {
-	Path       string              // 项目所在的目录
-	Mod        string              // 该项目的mode名字
-	Package    map[string]*Package //key是mod的全路径
-	urlFilters []*Function         //记录url过滤器函数
+	Path    string              // 项目所在的目录
+	Mod     string              // 该项目的mode名字
+	Package map[string]*Package //key是mod的全路径
+	servers map[string]*server  //key是server的名字，default，prpcserver
 	// creators map[*Struct]*Initiator
 	initFuncs        []string                //initAll 调用的init函数；
-	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
-	initRouteFuns    []string                //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
-	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
+	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
+	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	initMain         bool
 }
 
 func (project *Project) Parse() {
 	//读取go.mod
-	project.Mod = "gitlab.plaso.cn/bisshow"
 	modFile, err := os.Open("go.mod")
 	if err != nil {
 		log.Panicf("failed to open go.mod with error %s\n", err.Error())
@@ -50,6 +54,7 @@ func CreateProject(path string, init bool) Project {
 		Package:      make(map[string]*Package),
 		initiatorMap: make(map[*Struct]*Initiators),
 		initMain:     init,
+		servers:      make(map[string]*server),
 		// creators: make(map[*Struct]*Initiator),
 	}
 	project.initRawPackage()
@@ -77,8 +82,19 @@ func (project *Project) initRawPackage() {
 	rawPkg.getStruct("map", true)
 }
 
-func (project *Project) addUrlFilter(function *Function) {
-	project.urlFilters = append(project.urlFilters, function)
+func (project *Project) addServer(name string) {
+	if _, ok := project.servers[name]; ok {
+		fmt.Printf("server %s already exists\n", name)
+		return
+	}
+	project.servers[name] = &server{name: name}
+}
+func (project *Project) addUrlFilter(function *Function, serverName string) {
+	if server, ok := project.servers[serverName]; ok {
+		server.urlFilters = append(server.urlFilters, function)
+	} else {
+		fmt.Printf("server %s not found\n", serverName)
+	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
 	pkg := project.Package[modPath]
@@ -127,34 +143,36 @@ func (project *Project) parseDir(pathStr string) {
 	}
 }
 
-// 根据扫描情况生成filter函数；
-func (project *Project) generateUrlFilter(file *GenedFile) {
-	if len(project.urlFilters) == 0 {
+func (server *server) addInitFuncs(rpcClientName string) {
+	server.initFuncs = append(server.initFuncs, rpcClientName)
+}
+
+func (server *server) genInitRoute(file *GenedFile) {
+	if len(server.initRouteFuns) == 0 {
 		return
 	}
 	var content strings.Builder
-	var result0 = project.urlFilters[0].Results[0]
+	content.WriteString("func initRoute(router *gin.Engine) {\n")
+	for _, fun := range server.initRouteFuns {
+		content.WriteString(fun + "\n")
+	}
+	content.WriteString("}\n")
+	file.addBuilder(&content)
+	server.addInitFuncs("initRoute(router)")
+}
+
+// 根据扫描情况生成filter函数；
+func (project *Project) generateUrlFilter(file *GenedFile) {
+	var content strings.Builder
 	file.getImport("context", "context")
 	file.getImport("net/http", "http")
 	file.getImport("strings", "strings")
-	pkg := result0.pkg
-	file.getImport(pkg.modPath, pkg.modName)
-
 	content.WriteString(`
 	type UrlFilter struct {
 		path     string
 		function func(c context.Context, Request *http.Request) (error basic.Error)
 	}
-	func registerFilter(router *gin.Engine) {
-	`)
-
-	content.WriteString("var urlFilters =[]*UrlFilter{\n")
-	for _, filter := range project.urlFilters {
-		impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-		content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.comment.Url, impt.Name, filter.Name))
-	}
-	content.WriteString(`
-		}
+	func registerFilter(router *gin.Engine, urlFilters []*UrlFilter) {
 		router.Use(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
 			for _, filter := range urlFilters {
@@ -173,7 +191,6 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 	}
 	`)
 	file.addBuilder(&content)
-	project.initFuncs = append(project.initFuncs, "registerFilter(router)")
 }
 
 // file:
@@ -222,9 +239,9 @@ func (project *Project) GenerateCode() {
 	}
 	project.genBasicCode(file)
 	project.genInitVariable(file)
-	project.generateUrlFilter(file)
 	project.genRpcClientVariable(file)
-	project.genInitRoute(file)
+	project.generateUrlFilter(file)
+	// project.genInitRoute(file)
 	project.genInitAll(file)
 	file.save()
 }
@@ -301,8 +318,12 @@ func (project *Project) addInitVariable(variableName string) {
 	project.initVariableFuns = append(project.initVariableFuns, variableName+"()")
 }
 
-func (project *Project) addInitRoute(routerName string) {
-	project.initRouteFuns = append(project.initRouteFuns, routerName+"(router)")
+func (project *Project) addInitRoute(routerName string, serverName string) {
+	if server, ok := project.servers[serverName]; ok {
+		server.initRouteFuns = append(server.initRouteFuns, routerName)
+	} else {
+		fmt.Printf("server %s not found\n", serverName)
+	}
 }
 
 func (project *Project) addInitFuncs(rpcClientName string) {
@@ -312,20 +333,6 @@ func (project *Project) addInitFuncs(rpcClientName string) {
 // initRpcClientFuns
 func (project *Project) addInitRpcClientFuns(rpcField *Field) {
 	project.initRpcField = append(project.initRpcField, rpcField)
-}
-
-func (project *Project) genInitRoute(file *GenedFile) {
-	if len(project.initRouteFuns) == 0 {
-		return
-	}
-	var content strings.Builder
-	content.WriteString("func initRoute(router *gin.Engine) {\n")
-	for _, fun := range project.initRouteFuns {
-		content.WriteString(fun + "\n")
-	}
-	content.WriteString("}\n")
-	file.addBuilder(&content)
-	project.addInitFuncs("initRoute(router)")
 }
 
 func (Project *Project) genInitVariable(file *GenedFile) {
@@ -360,13 +367,19 @@ func (error *Error) Error() string {
 	return error.Message
 }
 
-	type Config struct {
-		CertFile string
-		KeyFile string
-		Cors bool
-		Addr string
-	}
-	func Run(config Config){
+type Config struct {
+	CertFile string
+	KeyFile string
+	Cors bool
+	Addr string
+}
+
+type server struct {
+	filters      []*UrlFilter
+	routerInitors []func(*gin.Engine)
+}
+var servers map[string]*server
+	func Run(config Config, serverName string){
 		var	router  *gin.Engine = gin.Default()
 		if(config.Cors){
 			config := cors.DefaultConfig()
@@ -374,7 +387,12 @@ func (error *Error) Error() string {
 			config.AllowHeaders = append(config.AllowHeaders, "*")
 			router.Use(cors.New(config))
 		}
-		initAll(router)
+			//如果不存在，则启动就失败，不需要检查
+			server := servers[serverName]
+	registerFilter(router, server.filters)
+	for _, routerInitor := range server.routerInitors {
+		routerInitor(router)
+	}
 		if config.CertFile != "" {
 			router.RunTLS(config.Addr, config.CertFile, config.KeyFile)
 		} else {
@@ -387,10 +405,34 @@ func (error *Error) Error() string {
 func (Project *Project) genInitAll(file *GenedFile) {
 	var content strings.Builder
 	content.WriteString(`
-	func initAll(router *gin.Engine){
+	func InitAll(router *gin.Engine){
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
+	}
+	content.WriteString("servers = make(map[string]*server)\n")
+	// servers[""] = &server{
+	// 	filters: []*UrlFilter{
+	// 		{path: "/nc/", function: filter.NcFilter},
+	// 	},
+	// 	routerInitors: []func(*gin.Engine){},
+	// }
+	for _, server := range Project.servers {
+		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
+		content.WriteString("filters: []*UrlFilter{\n")
+		for _, filter := range server.urlFilters {
+			impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
+			content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.comment.Url, impt.Name, filter.Name))
+		}
+		content.WriteString("},\n")
+		content.WriteString("routerInitors: []func(*gin.Engine){\n")
+		// server.initRouteFuns
+		for _, fun := range server.initRouteFuns {
+			content.WriteString(fmt.Sprintf("%s,\n", fun))
+		}
+		content.WriteString("},\n")
+		content.WriteString("}\n")
+
 	}
 	content.WriteString("}\n")
 	file.addBuilder(&content)

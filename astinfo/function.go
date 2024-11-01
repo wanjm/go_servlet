@@ -7,24 +7,6 @@ import (
 	"strings"
 )
 
-const (
-	NOUSAGE = iota
-	CREATOR
-	SERVLET
-	INITIATOR
-	FILTER
-	WEBSOCKET
-)
-
-const UrlFilter = "urlfilter"
-const Url = "url"
-
-const Creator = "creator"
-const Initiator = "initiator"
-const Websocket = "websocket"
-const Filter = "filter"
-const Servlet = "servlet"
-
 type FunctionManag interface {
 	addServlet(*Function)
 	addCreator(childClass *Struct, method *Function)
@@ -65,34 +47,38 @@ const (
 	GET  = "GET"
 )
 
+// @goservlet url="/test" filter=[prpc|servlet|""]; creator;initiator;websocket;
 type functionComment struct {
+	serverName   string
 	Url          string
 	method       string
 	isDeprecated bool
 	funcType     int
 }
 
-func (function *functionComment) dealValuePair(key, value string) {
+func (comment *functionComment) dealValuePair(key, value string) {
 	switch key {
 	case Url:
-		function.Url = value
-		if function.funcType == NOUSAGE {
+		comment.Url = value
+		if comment.funcType == NOUSAGE {
 			//默认是servlet
-			function.funcType = SERVLET
+			comment.funcType = SERVLET
 		}
 	case Creator:
-		function.funcType = CREATOR
+		comment.funcType = CREATOR
 	case UrlFilter:
-		function.Url = value
-		function.funcType = FILTER
+		comment.Url = value
+		comment.funcType = FILTER
 	case Filter:
-		function.funcType = FILTER
+		comment.serverName = value
+		comment.funcType = FILTER
 	case Servlet:
-		function.funcType = SERVLET
+		comment.serverName = value
+		comment.funcType = SERVLET
 	case Initiator:
-		function.funcType = INITIATOR
+		comment.funcType = INITIATOR
 	case Websocket:
-		function.funcType = WEBSOCKET
+		comment.funcType = WEBSOCKET
 	}
 }
 
@@ -104,8 +90,7 @@ type Function struct {
 	pkg         *Package
 	goFile      *GoFile
 	funcManager *FunctionManager
-
-	comment functionComment
+	comment     functionComment
 	// Url        string // method url from comments;
 	// deprecated bool
 }
@@ -143,7 +128,7 @@ func (method *Function) Parse() bool {
 	case SERVLET, WEBSOCKET:
 		method.funcManager.addServlet(method)
 	case FILTER:
-		method.pkg.Project.addUrlFilter(method)
+		method.pkg.Project.addUrlFilter(method, method.comment.serverName)
 	}
 	return true
 }
@@ -262,5 +247,6 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		})
 	`, objResult, receiverPrefix, method.Name, requestName, objString))
 	sb.WriteString("})\n")
+
 	return sb.String()
 }
