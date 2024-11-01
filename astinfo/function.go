@@ -71,7 +71,7 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.funcType = FILTER
 	case Filter:
 		if len(value) == 0 {
-			value = Prpc
+			value = Servlet
 		}
 		comment.serverName = value
 		comment.funcType = FILTER

@@ -243,7 +243,7 @@ func (project *Project) GenerateCode() {
 	project.genInitVariable(file)
 	project.genRpcClientVariable(file)
 	// project.genInitRoute(file)
-	project.genInitAll(file)
+	project.genPrepare(file)
 	file.save()
 }
 
@@ -373,6 +373,7 @@ type server struct {
 }
 var servers map[string]*server
 	func Run(config Config, serverName string){
+		prepare()
 		var	router  *gin.Engine = gin.Default()
 		if(config.Cors){
 			config := cors.DefaultConfig()
@@ -395,10 +396,15 @@ var servers map[string]*server
 	`)
 	file.addBuilder(&content)
 }
-func (Project *Project) genInitAll(file *GenedFile) {
+func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
 	content.WriteString(`
-	func InitAll(router *gin.Engine){
+	var prepared =false;
+	func prepare(){
+	if(prepared){
+		return
+	}
+	prepared = true
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
