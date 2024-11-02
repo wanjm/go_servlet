@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-openapi/spec"
 )
 
 type server struct {
@@ -26,6 +28,7 @@ type Project struct {
 	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	initMain         bool
+	swag             *spec.Swagger
 }
 
 func (project *Project) Parse() {
@@ -218,6 +221,7 @@ func (project *Project) GenerateCode() {
 	file := createGenedFile("project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
+	project.initSwagger()
 	// project.generateInit(&content)
 
 	// 根据情况生成filter函数；
@@ -234,9 +238,11 @@ func (project *Project) GenerateCode() {
 		pkg.generateInitorCode()
 	}
 
-	for _, pkg := range project.Package {
+	for name, pkg := range project.Package {
+		fmt.Printf("deal package %s\n", name)
 		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
+		pkg.initSwaggerPaths()
 		pkg.file.save()
 	}
 	project.genBasicCode(file)
@@ -244,6 +250,8 @@ func (project *Project) GenerateCode() {
 	project.genRpcClientVariable(file)
 	// project.genInitRoute(file)
 	project.genPrepare(file)
+	json, _ := project.swag.MarshalJSON()
+	fmt.Println(string(json))
 	file.save()
 }
 
