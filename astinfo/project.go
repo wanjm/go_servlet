@@ -398,13 +398,15 @@ var servers map[string]*server
 }
 func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
+	file.getImport("sync/atomic", "atomic")
 	content.WriteString(`
-	var prepared =false;
-	func prepare(){
-	if(prepared){
-		return
-	}
-	prepared = true
+	var prepared atomic.Bool
+
+	func prepare() {
+		if prepared.Load() {
+			return
+		}
+		prepared.Store(true)
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
