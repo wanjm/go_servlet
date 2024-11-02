@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
-	"os"
 	"strings"
 )
 
@@ -19,13 +18,11 @@ type Package struct {
 	// Struct    []*Struct
 	// ModInfo   Import
 	PackageInfo
-	Project   *Project
-	StructMap map[string]*Struct //key是StructName
+	Project      *Project
+	StructMap    map[string]*Struct    //key是StructName
+	InterfaceMap map[string]*Interface //key是Interface 的Name
 	FunctionManager
-	// file      *GenedFile
-	define strings.Builder
-	assign strings.Builder
-	file   *GenedFile
+	file *GenedFile
 }
 
 type Import struct {
@@ -41,6 +38,7 @@ func CreatePackage(project *Project, modPath string) *Package {
 	return &Package{
 		Project:         project,
 		StructMap:       make(map[string]*Struct),
+		InterfaceMap:    make(map[string]*Interface),
 		FunctionManager: createFunctionManager(),
 		PackageInfo: PackageInfo{
 			modPath: modPath,
@@ -58,7 +56,8 @@ func (pkg *Package) Parse(path string) {
 		return
 	}
 	for packName, pack := range packageMap {
-		fmt.Printf("begin parse %s with %s\n", packName, path)
+		_ = packName
+		// fmt.Printf("begin parse %s with %s\n", packName, path)
 		for filename, f := range pack.Files {
 			pkg.parseMod(f, filename)
 			gofile := createGoFile(f, pkg, filename)
@@ -78,6 +77,17 @@ func (pkg *Package) parseMod(file *ast.File, fileName string) {
 	}
 }
 
+func (pkg *Package) getInterface(name string, create bool) *Interface {
+	var class *Interface
+	var ok bool
+	if class, ok = pkg.InterfaceMap[name]; !ok {
+		if create {
+			class = CreateInterface(name, pkg)
+			pkg.InterfaceMap[name] = class
+		}
+	}
+	return class
+}
 func (pkg *Package) getStruct(name string, create bool) *Struct {
 	var class *Struct
 	var ok bool
@@ -90,64 +100,81 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 	return class
 }
 
-// 生成代码
+// 生成initiator的代码
+// 定义initorator的函数，在此被调用，并保存在全局变量中；
 func (pkg *Package) generateInitorCode() {
-	define := &pkg.define
-	assign := &pkg.assign
+	if len(pkg.initiators) == 0 {
+		return
+	}
+	define := strings.Builder{}
+	assign := strings.Builder{}
+	pkg.file.addBuilder(&define)
+	pkg.file.addBuilder(&assign)
+	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
+	assign.WriteString("func " + initorName + "(){\n")
+	pkg.Project.addInitVariable(initorName)
 	for _, initor := range pkg.initiators {
 		result := initor.Results[0]
+
+		name := result.name
+		if len(name) == 0 {
+			name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
+			name = strings.ReplaceAll(name, "/", "_")
+		}
+
 		variable := Variable{
 			creator:   initor,
-			class:     result.class,
-			name:      result.name,
+			class:     result.findStruct(true),
+			name:      name,
 			isPointer: result.isPointer,
 		}
 		//先添加到全局定义中去，可能给variable补名字
 		pkg.Project.addInitiatorVaiable(&variable)
 		define.WriteString(variable.genDefinition(pkg.file))
 		define.WriteString("\n")
-		name := variable.name
+
 		assign.WriteString(name)
 		assign.WriteString("=")
 		assign.WriteString(variable.generateCode("", pkg.file))
 		assign.WriteString("\n")
 	}
+	assign.WriteString("}\n")
 }
-func (pkg *Package) GenerateCode() (initorName, routerName string) {
-	// 产生文件；
-	var routerFunction strings.Builder
-	// 调用initiator函数
-	// 针对每个struct，产生servlet文件；
-	for _, class := range pkg.StructMap {
-		if len(class.servlets) > 0 {
-			routerFunction.WriteString(class.GenerateCode(pkg.file))
+
+// 生成rpc客户端的代码
+func (pkg *Package) GenerateRpcClientCode() {
+	var rpcBuilder strings.Builder
+	var hasContent = false
+	for _, rpc := range pkg.InterfaceMap {
+		// interface的方法保存在servlets中
+		if rpc.GenerateCode(pkg.file, &rpcBuilder) {
+			hasContent = true
 		}
 	}
-	define := &pkg.define
-	assign := &pkg.assign
-	if define.Len() == 0 && routerFunction.Len() == 0 {
-		return
+	if hasContent {
+		pkg.file.addBuilder(&rpcBuilder)
 	}
-	var name string
-	name = pkg.Project.getRelativeModePath(pkg.modPath)
-	name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
-	var content strings.Builder
-	content.WriteString("package gen\n")
-	content.WriteString(pkg.file.genImport())
-	if define.Len() > 0 {
-		initorName = fmt.Sprintf("init%s_variable", name)
-		content.WriteString(define.String())
-		content.WriteString("func " + initorName + "(){\n")
-		content.WriteString(assign.String())
-		content.WriteString("}\n")
+}
+func (pkg *Package) GenerateRouteCode() {
+	// 产生文件；
+	// 针对每个struct，产生servlet文件；
+	var builders = make(map[string]*strings.Builder)
+	for _, class := range pkg.StructMap {
+		if len(class.servlets) > 0 {
+			routerName := "init_" + class.comment.groupName + "_" + pkg.file.name + "_router"
+			var builder *strings.Builder
+			var ok bool
+			if builder, ok = builders[routerName]; !ok {
+				builder = &strings.Builder{}
+				builders[routerName] = builder
+				builder.WriteString("func " + routerName + "(router *gin.Engine){\n")
+				pkg.file.addBuilder(builder)
+				pkg.Project.addInitRoute(routerName, class.comment.groupName)
+			}
+			builder.WriteString(class.GenerateCode(pkg.file))
+		}
 	}
-	if routerFunction.Len() > 0 {
-		routerName = fmt.Sprintf("init%s_router", name)
-		content.WriteString("func " + routerName + "(router *gin.Engine){\n")
-		content.WriteString(routerFunction.String())
-		content.WriteString("}\n")
+	for _, builder := range builders {
+		builder.WriteString("}\n")
 	}
-
-	os.WriteFile(name+".go", []byte(content.String()), 0660)
-	return
 }

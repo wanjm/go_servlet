@@ -4,15 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"log"
-	"regexp"
 	"strings"
-)
-
-const (
-	NOUSAGE = iota
-	CREATOR
-	SERVLET
-	INITIATOR
 )
 
 type FunctionManag interface {
@@ -25,7 +17,6 @@ type FunctionManager struct {
 	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
 	initiators []*Function           //初始化函数
 	servlets   []*Function           //记录路由代码
-
 }
 
 func createFunctionManager() FunctionManager {
@@ -51,70 +42,85 @@ func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Fu
 	return funcManager.creators[childClass]
 }
 
+const (
+	POST = "POST"
+	GET  = "GET"
+)
+
+// @goservlet url="/test" filter=[prpc|servlet|""]; creator;initiator;websocket;
+type functionComment struct {
+	serverName   string
+	Url          string
+	method       string
+	isDeprecated bool
+	funcType     int
+}
+
+func (comment *functionComment) dealValuePair(key, value string) {
+	switch key {
+	case Url:
+		comment.Url = value
+		if comment.funcType == NOUSAGE {
+			//默认是servlet
+			comment.funcType = SERVLET
+		}
+	case Creator:
+		comment.funcType = CREATOR
+	case UrlFilter:
+		comment.Url = value
+		comment.funcType = FILTER
+	case Filter:
+		if len(value) == 0 {
+			value = Servlet
+		}
+		comment.serverName = value
+		comment.funcType = FILTER
+	case Servlet:
+		comment.serverName = value
+		comment.funcType = SERVLET
+	case Prpc:
+		comment.serverName = value
+		comment.funcType = PRPC
+	case Initiator:
+		comment.funcType = INITIATOR
+	case Websocket:
+		comment.funcType = WEBSOCKET
+	default:
+		fmt.Printf("unknown key '%s' in function comment\n", key)
+	}
+}
+
 type Function struct {
-	Name        string      // method name
-	Params      []*Variable // method params, 下标0是request
-	Results     []*Variable // method results（output)
+	Name        string   // method name
+	Params      []*Field // method params, 下标0是request
+	Results     []*Field // method results（output)
 	function    *ast.FuncDecl
 	pkg         *Package
 	goFile      *GoFile
 	funcManager *FunctionManager
-
-	Url        string // method url from comments;
-	deprecated bool
+	comment     functionComment
+	// Url        string // method url from comments;
+	// deprecated bool
 }
 
 func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 	return &Function{
 		function:    f,
+		Name:        f.Name.Name,
 		pkg:         goFile.pkg,
 		goFile:      goFile,
 		funcManager: &goFile.pkg.FunctionManager,
 	}
 }
 
-// 解析注释
-func (function *Function) parseComment() int {
-	f := function.function
-	function.Name = f.Name.Name
-	funcType := NOUSAGE
-	// isCreator := strings.HasSuffix(method.Name, "Creator")
-	if f.Doc != nil {
-		for _, comment := range f.Doc.List {
-			text := strings.Trim(comment.Text, "/ \t") // 去掉前后的空格和斜杠
-			text = strings.ReplaceAll(text, "\t ", "")
-			if strings.HasPrefix(text, TagPrefix) {
-				pattern := regexp.MustCompile(`\s+=\s+`)
-				newString := pattern.ReplaceAllString(text[len(TagPrefix):], "=")
-				commands := strings.Split(newString, " ")
-				for _, command := range commands {
-					valuePair := strings.Split(command, "=")
-					if len(valuePair) == 2 {
-						valuePair[1] = strings.Trim(valuePair[1], "\"'")
-					}
-					switch valuePair[0] {
-					case "url":
-						function.Url = valuePair[1]
-						return SERVLET
-					case "creator":
-						return CREATOR
-					case "initiator":
-						return INITIATOR
-					}
-
-				}
-			}
-		}
-	}
-	return funcType
-}
-
 func (method *Function) Parse() bool {
-	funcType := method.parseComment()
-
-	switch funcType {
+	parseComment(method.function.Doc, &method.comment)
+	method.parseParameter(method.function.Type)
+	switch method.comment.funcType {
 	case CREATOR:
-		returnStruct := method.parseCreator()
+		//当将来有Creator方法返回位interface是，此处的findStruct(true)需要修改
+		method.parseCreator()
+		returnStruct := method.Results[0].findStruct(true)
 		if returnStruct != nil {
 			method.funcManager.addCreator(returnStruct, method)
 		}
@@ -127,9 +133,42 @@ func (method *Function) Parse() bool {
 		// 	creator: method,
 		// 	class:   returnStruct,
 		// })
-	case SERVLET:
-		method.parseServlet()
+	case SERVLET, WEBSOCKET, PRPC:
 		method.funcManager.addServlet(method)
+	case FILTER:
+		method.pkg.Project.addUrlFilter(method, method.comment.serverName)
+	}
+	return true
+}
+
+// 解析参数和返回值
+func (method *Function) parseParameter(paramType *ast.FuncType) bool {
+	for _, param := range paramType.Params.List {
+		field := Field{
+			ownerInfo: "function Name is " + method.Name,
+		}
+		field.parse(param.Type, method.goFile)
+		//此处可能多个参数 a,b string的格式暂时仅处理一个；
+		if len(param.Names) > 1 {
+			log.Fatalf("function %s has more than one parameter", method.Name)
+		}
+		if len(param.Names) > 0 {
+			field.name = param.Names[0].Name
+		}
+		method.Params = append(method.Params, &field)
+	}
+	if paramType.Results != nil {
+		for _, result := range paramType.Results.List {
+			field := Field{
+				ownerInfo: "function Name is " + method.Name,
+			}
+			field.parse(result.Type, method.goFile)
+
+			if len(result.Names) != 0 {
+				field.name = result.Names[0].Name
+			}
+			method.Results = append(method.Results, &field)
+		}
 	}
 	return true
 }
@@ -140,114 +179,111 @@ func (method *Function) parseCreator() *Struct {
 	if len(returnTypeList) != 1 {
 		log.Fatalf("creator %s should have one return value", method.Name)
 	}
-	// 1. 返回其他包的是*ast.SelectorExpr; 返回本包的是什么？
-	// 2. 如何区分返回的是指针还是结构体
-	structType := method.parseFieldType(returnTypeList[0])
-	if structType != nil {
-		struct1 := structType.class
-		method.Results = append(method.Results, structType)
-		return struct1
-	} else {
-		log.Fatalf("creator %s has unknow type %V\n", method.Name, returnTypeList[0].Type)
-	}
 	return nil
 }
+
 func (method *Function) parseServlet() {
 	funcDecl := method.function
 	paramsList := funcDecl.Type.Params.List
 	if len(paramsList) < 2 {
-		log.Fatalf("servlet %s should have at least two parameters", method.Name)
+		// 	log.Fatalf("servlet %s should have at least two parameters", method.Name)
 	}
-	structType := method.parseFieldType(paramsList[0])
-	// 仅关心第一个参数；
-	// 暂时没有关心返回值
-	method.Params = append(method.Params, structType)
 }
 
-// 解析参数或者返回值的一个变量
-func (method *Function) parseFieldType(field *ast.Field) *Variable {
-	var selectorExpr *ast.SelectorExpr
-	var isPointer bool
-	if fieldType, ok := field.Type.(*ast.StarExpr); ok {
-		if selectorExpr, ok = fieldType.X.(*ast.SelectorExpr); !ok {
-			fmt.Printf("function %s has unknow type %V\n", method.Name, field.Type)
-			return nil
-		}
-		isPointer = true
-	} else if fieldType, ok := field.Type.(*ast.SelectorExpr); ok {
-		isPointer = false
-		selectorExpr = fieldType
-	} else {
-		fmt.Printf("function %s has unknow type %V\n", method.Name, field.Type)
-		return nil
+func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string) string {
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	var sb = strings.Builder{}
+	sb.WriteString("router.GET(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString(receiverPrefix + method.Name + "(c,c.Writer,c.Request)\n")
+	sb.WriteString("})\n")
+	return sb.String()
+}
+
+func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix string) string {
+	file.getImport("github.com/gin-gonic/gin", "gin")
+	var sb strings.Builder
+	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	var interfaceArgs string
+	var realParams string
+	for i := 1; i < len(method.Params); i++ {
+		param := method.Params[i]
+		name := fmt.Sprintf("arg%d", i)
+		sb.WriteString("var " + name + " " + param.class.(*Struct).Name + "\n")
+		interfaceArgs += "&" + name + ","
+		realParams += "," + name
 	}
-	// 此处有三种情况
-	// 1. 返回一个本项目存在结构体，mymode.Struct
-	// 2. 返回一个本pkg的结构体，Struct
-	// 3. 返回一个第三方的结构体体
-	modelName := selectorExpr.X.(*ast.Ident).Name
-	structName := selectorExpr.Sel.Name
-	pkgPath := method.goFile.getImportPath(modelName, method.Name)
-	pkg := method.goFile.pkg.Project.getPackage(pkgPath, true)
-	var nameOfReturn0 string
-	switch len(field.Names) {
-	case 0:
-		nameOfReturn0 = ""
-	case 1:
-		nameOfReturn0 = field.Names[0].Name
-	default:
-		log.Fatalf("initiator %s should have one or null in %s return value", method.Name, method.goFile.path)
+
+	sb.WriteString(fmt.Sprintf("var request=[]interface{}{%s}\n", interfaceArgs))
+	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
 	}
-	struct1 := pkg.getStruct(structName, true)
-	return &Variable{
-		name:      nameOfReturn0,
-		class:     struct1,
-		isPointer: isPointer,
-		// creator:   method,
-	}
+	`)
+	sb.WriteString(fmt.Sprintf(`response, err := %s%s(c%s)
+		c.JSON(200, map[string]interface{}{
+			"c":err.Code,
+			"o":response,
+		})
+	`, receiverPrefix, method.Name, realParams))
+	sb.WriteString("})\n") //end of router.POST
+	return sb.String()
 }
 
 // 产生本方法即成到路由中去的方法
 // file: 表示在那个文件中产生；
 // receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
-func (method *Function) GenerateCode(file *GenedFile, receiverPrefix string) string {
+func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
-	// file.getImport(method.pkg.Project.getModePath("basic"), "basic")
-	codeFmt := `
-	router.POST("%s", func(c *gin.Context) {
-		%s
-		if err := c.ShouldBindJSON(request); err != nil {
+	var sb strings.Builder
+	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	var requestName string
+	//  有request请求，需要解析request，有些情况下，服务端不需要request；
+	if len(method.Params) >= 2 {
+		var variableCode string
+		requestParam := method.Params[1]
+		variable := Variable{
+			isPointer: requestParam.isPointer,
+			class:     requestParam.findStruct(true),
+			name:      "request",
+		}
+		// 从receiver中查找是否有Creator方法
+		creator := method.funcManager.getCreator(variable.class)
+		if creator != nil {
+			variable.creator = creator
+			variable.isPointer = creator.Results[0].isPointer
+		} else {
+			variable.isPointer = true
+		}
+		if variable.isPointer {
+			variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
+		} else {
+			variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
+		}
+		sb.WriteString(variableCode)
+		sb.WriteString(`if err := c.ShouldBindJSON(request); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		response, err := %s%s(request, c)
+		`)
+		requestName = ",request"
+	}
+	var objString string
+	var objResult string
+	// 返回值仅有一个是Error；
+	if len(method.Results) == 2 {
+		objResult = "response,"
+		objString = "Object:response,"
+	}
+	// 返回值有两个，一个是response，一个是Error；
+	// 代码暂不检查是否超过两个；
+	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
 		c.JSON(200, Response{
-			Object:  response,
+			%s
 			Code:    err.Code,
 			Message: err.Message,
 		})
-	})
-	`
-	var variableCode string
-	variable := *method.Params[0]
-	variable.name = "request"
-	// 从receiver中查找是否有Creator方法
-	creator := method.funcManager.getCreator(variable.class)
-	if creator != nil {
-		variable.creator = creator
-		variable.isPointer = creator.Results[0].isPointer
-	} else {
-		variable.isPointer = true
-	}
-	if variable.isPointer {
-		variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
-	} else {
-		variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
-	}
+	`, objResult, receiverPrefix, method.Name, requestName, objString))
+	sb.WriteString("})\n")
 
-	return fmt.Sprintf(codeFmt,
-		method.Url,
-		variableCode,
-		receiverPrefix, method.Name,
-	)
+	return sb.String()
 }

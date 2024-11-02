@@ -5,6 +5,31 @@ import (
 	"strings"
 )
 
+// /@goservlet prpc=xxx; servlet=xxx; servle; prpc
+type structComment struct {
+	groupName  string
+	serverType int // NONE, RpcStruct, ServletStruct
+}
+
+func (comment *structComment) dealValuePair(key, value string) {
+	switch key {
+	case Prpc:
+		comment.serverType = PRPC
+		if len(value) == 0 {
+			comment.groupName = Prpc
+		} else {
+			comment.groupName = value
+		}
+	case Servlet:
+		comment.serverType = SERVLET
+		if len(value) == 0 {
+			comment.groupName = Servlet
+		} else {
+			comment.groupName = value
+		}
+	}
+}
+
 type Struct struct {
 	Name string
 	// ImportUrl      string
@@ -15,6 +40,8 @@ type Struct struct {
 	Package     *Package
 	structFound bool
 	fields      []*Field
+	usage       int
+	comment     structComment
 
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
 }
@@ -29,7 +56,7 @@ func CreateStruct(name string, pkg *Package) *Struct {
 func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 	for _, field := range structType.Fields.List {
 		classField := Field{
-			owner: class,
+			ownerInfo: "struct Name is " + class.Name,
 		}
 		classField.parse(field.Type, goFile)
 		for _, name := range field.Names {
@@ -38,6 +65,14 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 			class.fields = append(class.fields, &oneClassField)
 		}
 	}
+}
+
+func (class *Struct) parseComment(doc *ast.CommentGroup) string {
+	if doc == nil {
+		return ""
+	}
+
+	return ""
 }
 
 // 注意跟变量注入区分开来
@@ -52,9 +87,17 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 		name:      firstLower(class.Name),
 	}
 	var sb strings.Builder
-	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file))
+	// 定义strutct对象；
+	sb.WriteString(receiver.name + ":=" + receiver.generateCode("", file) + "\n")
 	for _, servlet := range class.servlets {
-		sb.WriteString(servlet.GenerateCode(file, receiver.name+"."))
+		switch servlet.comment.funcType {
+		case SERVLET:
+			sb.WriteString(servlet.GenerateServlet(file, receiver.name+"."))
+		case PRPC:
+			sb.WriteString(servlet.GenerateRpcServlet(file, receiver.name+"."))
+		case WEBSOCKET:
+			sb.WriteString(servlet.GenerateWebsocket(file, receiver.name+"."))
+		}
 	}
 	return sb.String()
 }

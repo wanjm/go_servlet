@@ -31,12 +31,20 @@ func (goFile *GoFile) parseFile() {
 	decls := goFile.file.Decls
 	for i := 0; i < len(decls); i++ {
 		if genDecl, ok := decls[i].(*ast.GenDecl); ok {
-			if genDecl.Tok == token.TYPE {
-				if len(genDecl.Specs) > 1 {
-					log.Fatalf("解析结构体时，发现多个结构，代码功能不全 %s 下标%d\n", goFile.path, i)
+			// type interface, type struct
+			switch genDecl.Tok {
+			case token.TYPE:
+				{
+					if len(genDecl.Specs) > 1 {
+						log.Fatalf("解析结构体时，发现多个结构，代码功能不全 %s 下标%d\n", goFile.path, i)
+					}
+					goFile.parseType(genDecl)
 				}
-
-				goFile.parseStruct(genDecl.Specs[0].(*ast.TypeSpec))
+			case token.VAR:
+				{
+					//解析package中的全局变量
+					goFile.parseVariable(genDecl)
+				}
 			}
 		} else if funcDecl, ok := decls[i].(*ast.FuncDecl); ok {
 			if funcDecl.Recv == nil {
@@ -49,10 +57,11 @@ func (goFile *GoFile) parseFile() {
 }
 
 // 有些第三方的modeName不是最后package的最后一位，所以此处可能找不到；先退出程序，后续看看怎么处理
-func (gofile *GoFile) getImportPath(modeName string, methodName string) string {
+// 返回go文件头中import的modeName对应的全路径
+func (gofile *GoFile) getImportPath(modeName string, info string) string {
 	pkgPath := gofile.Imports[modeName]
 	if len(pkgPath) == 0 {
-		fmt.Printf("failed to find the fullPath of package %s in %s, please add alias %s to your import part to avoid this\n", modeName, methodName, modeName)
+		fmt.Printf("failed to find the fullPath of package %s in %s, please add alias %s to your import part to avoid this\n", modeName, info, modeName)
 		os.Exit(1)
 	}
 	return pkgPath
@@ -81,11 +90,42 @@ func (goFile *GoFile) parseImport() {
 	}
 }
 
-func (goFile *GoFile) parseStruct(typeSpec *ast.TypeSpec) {
+// 解析package中的全局变量
+func (goFile *GoFile) parseVariable(genDecl *ast.GenDecl) {
+	if fieldPair, ok := genDecl.Specs[0].(*ast.ValueSpec); ok {
+		name := fieldPair.Names[0].Name
+		var field = Field{
+			name: name,
+		}
+		field.parse(fieldPair.Type, goFile)
+		intface := field.findInterface()
+		if intface != nil {
+			if intface.config != nil {
+				field.typeName = intface.Name
+				field.pkg = goFile.pkg
+				goFile.pkg.Project.addInitRpcClientFuns(&field)
+			}
+		}
+	}
+}
+func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
+	typeSpec := genDecl.Specs[0].(*ast.TypeSpec)
 	// 仅关注结构体，暂时不考虑接口
-	if structType, ok := typeSpec.Type.(*ast.StructType); ok {
+	switch typeSpec.Type.(type) {
+	case *ast.InterfaceType:
+		interfaceType := typeSpec.Type.(*ast.InterfaceType)
+		itface := goFile.pkg.getInterface(typeSpec.Name.Name, true)
+		itface.parseComment(genDecl.Doc)
+		itface.Parse(interfaceType, goFile)
+		fmt.Printf("interface %s\n", typeSpec.Name.Name)
+	case *ast.StructType:
+		structType := typeSpec.Type.(*ast.StructType)
 		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)
 		class.structFound = true
+		parseComment(genDecl.Doc, &class.comment)
+		if class.comment.serverType != NOUSAGE {
+			goFile.pkg.Project.addServer(class.comment.groupName)
+		}
 		class.parse(structType, goFile)
 	}
 }
