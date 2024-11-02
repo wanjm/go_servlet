@@ -133,7 +133,7 @@ func (method *Function) Parse() bool {
 		// 	creator: method,
 		// 	class:   returnStruct,
 		// })
-	case SERVLET, WEBSOCKET:
+	case SERVLET, WEBSOCKET, PRPC:
 		method.funcManager.addServlet(method)
 	case FILTER:
 		method.pkg.Project.addUrlFilter(method, method.comment.serverName)
@@ -203,26 +203,29 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb strings.Builder
 	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
-	var realParams []string
+	var interfaceArgs string
+	var realParams string
 	for i := 1; i < len(method.Params); i++ {
 		param := method.Params[i]
 		name := fmt.Sprintf("arg%d", i)
 		sb.WriteString("var " + name + " " + param.class.(*Struct).Name + "\n")
-		realParams = append(realParams, name)
+		interfaceArgs += "&" + name + ","
+		realParams += "," + name
 	}
 
-	sb.WriteString(fmt.Sprintf("var request=[]interface{%s}", strings.Join(realParams, ",&"[1:])))
+	sb.WriteString(fmt.Sprintf("var request=[]interface{}{%s}\n", interfaceArgs))
 	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 	`)
 	sb.WriteString(fmt.Sprintf(`response, err := %s%s(c%s)
-		c.JSON(200, RpcResult{
-			C:err.Code,
-			O:response,
+		c.JSON(200, map[string]interface{}{
+			"c":err.Code,
+			"o":response,
 		})
-	`, receiverPrefix, method.Name, strings.Join(realParams, ",")))
+	`, receiverPrefix, method.Name, realParams))
+	sb.WriteString("})\n") //end of router.POST
 	return sb.String()
 }
 

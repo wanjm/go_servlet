@@ -161,7 +161,7 @@ func (pkg *Package) GenerateRouteCode() {
 	var builders = make(map[string]*strings.Builder)
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {
-			routerName := "init_" + pkg.file.name + "_" + class.comment.groupName + "_router"
+			routerName := "init_" + class.comment.groupName + "_" + pkg.file.name + "_router"
 			var builder *strings.Builder
 			var ok bool
 			if builder, ok = builders[routerName]; !ok {
