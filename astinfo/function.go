@@ -84,6 +84,7 @@ func (comment *functionComment) dealValuePair(key, value string) {
 	case Initiator:
 		comment.funcType = INITIATOR
 	case Websocket:
+		comment.method = GET
 		comment.funcType = WEBSOCKET
 	default:
 		fmt.Printf("unknown key '%s' in function comment\n", key)

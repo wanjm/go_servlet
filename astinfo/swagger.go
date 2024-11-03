@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-openapi/spec"
 )
@@ -63,11 +64,7 @@ func initOperation() *spec.Operation {
 		},
 	}
 }
-func (pkg *Package) initSwaggerPaths() {
-	if pkg.Project == nil {
-		pkg.Project.initSwagger()
-	}
-	paths := pkg.Project.swag.Paths.Paths
+func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) {
 	for _, servlet := range pkg.servlets {
 		if servlet.comment.Url == "" {
 			fmt.Printf("servlet %s has no url\n", servlet.Name)
@@ -84,6 +81,16 @@ func (pkg *Package) initSwaggerPaths() {
 			fmt.Printf("servlet %s has invalid method %s,which is not supported\n", servlet.Name, servlet.comment.method)
 			continue
 		}
-		paths[servlet.comment.Url] = pathItem
+		paths[strings.Trim(servlet.comment.Url, "\"")] = pathItem
+	}
+}
+func (pkg *Package) addServletToSwagger() {
+	if pkg.Project == nil {
+		pkg.Project.initSwagger()
+	}
+	paths := pkg.Project.swag.Paths.Paths
+	pkg.FunctionManager.addServletToSwagger(paths)
+	for _, class := range pkg.StructMap {
+		class.addServletToSwagger(paths)
 	}
 }

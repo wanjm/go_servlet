@@ -245,7 +245,7 @@ func (project *Project) GenerateCode() {
 		// fmt.Printf("deal package %s\n", name)
 		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
-		pkg.initSwaggerPaths()
+		pkg.addServletToSwagger()
 		pkg.file.save()
 	}
 	project.genBasicCode(file)
