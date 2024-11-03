@@ -75,6 +75,12 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 		switch servlet.comment.method {
 		case POST, "":
 			pathItem.Post = initOperation()
+			pathItem.Parameters = []spec.Parameter{{
+				ParamProps: spec.ParamProps{
+					Name: "body",
+					In:   "body",
+				},
+			}}
 		case GET:
 			pathItem.Get = initOperation()
 		default:
@@ -85,9 +91,6 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 	}
 }
 func (pkg *Package) addServletToSwagger() {
-	if pkg.Project == nil {
-		pkg.Project.initSwagger()
-	}
 	paths := pkg.Project.swag.Paths.Paths
 	pkg.FunctionManager.addServletToSwagger(paths)
 	for _, class := range pkg.StructMap {
