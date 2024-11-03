@@ -51,7 +51,7 @@ func (project *Project) Parse() {
 	project.parseDir(project.Path)
 }
 
-func CreateProject(path string, init bool) Project {
+func CreateProject(path string, init bool) *Project {
 	project := Project{
 		Path:         path,
 		Package:      make(map[string]*Package),
@@ -60,8 +60,10 @@ func CreateProject(path string, init bool) Project {
 		servers:      make(map[string]*server),
 		// creators: make(map[*Struct]*Initiator),
 	}
+	// 由于Package中有指向Project的指针，所以RawPackage指向了此处的project，如果返回对象，则出现了两个Project，一个是返回的Project，一个是RawPackage中的Project；
+	// 返回*Project才能保证这是一个Project对象；
 	project.initRawPackage()
-	return project
+	return &project
 }
 func (project *Project) initRawPackage() {
 	rawPkg := project.getPackage(GolangRawType, true) //创建原始类型
@@ -239,7 +241,8 @@ func (project *Project) GenerateCode() {
 	}
 
 	for name, pkg := range project.Package {
-		fmt.Printf("deal package %s\n", name)
+		_ = name
+		// fmt.Printf("deal package %s\n", name)
 		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
 		pkg.initSwaggerPaths()
