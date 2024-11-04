@@ -148,7 +148,7 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 		field := Field{
 			ownerInfo: "function Name is " + method.Name,
 		}
-		field.parse(param.Type, method.goFile)
+		field.parseType(param.Type, method.goFile)
 		//此处可能多个参数 a,b string的格式暂时仅处理一个；
 		if len(param.Names) > 1 {
 			log.Fatalf("function %s has more than one parameter", method.Name)
@@ -163,7 +163,7 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 			field := Field{
 				ownerInfo: "function Name is " + method.Name,
 			}
-			field.parse(result.Type, method.goFile)
+			field.parseType(result.Type, method.goFile)
 
 			if len(result.Names) != 0 {
 				field.name = result.Names[0].Name

@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"go/ast"
+	"strings"
 )
 
 const (
@@ -16,10 +17,34 @@ type Field struct {
 	pkg       *Package
 	isPointer bool
 	name      string
+	jsonName  string
+	comment   string
 	ownerInfo string //记录用于打印日志的信息
 }
 
-func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
+func (field *Field) parse(astField *ast.Field, goFile *GoFile) {
+	field.parseTag(astField.Tag, goFile)
+	field.parseComment(astField.Comment, goFile)
+	field.parseType(astField.Type, goFile)
+}
+func (field *Field) parseTag(fieldType *ast.BasicLit, goFile *GoFile) {
+	if fieldType != nil {
+		tag := strings.Trim(fieldType.Value, "`\"")
+		tagList := strings.Split(tag, " ")
+		for _, tag := range tagList {
+			if strings.Contains(tag, "json") {
+				value := strings.Trim(strings.Split(tag, ":")[1], "\"")
+				field.jsonName = strings.Split(value, ",")[0]
+			}
+		}
+	}
+}
+func (field *Field) parseComment(fieldType *ast.CommentGroup, goFile *GoFile) {
+	if fieldType != nil && len(fieldType.List) > 0 {
+		field.comment = strings.Trim(fieldType.List[0].Text, "\" /")
+	}
+}
+func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
 	if _, ok := fieldType.(*ast.ArrayType); ok {

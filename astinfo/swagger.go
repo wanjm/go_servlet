@@ -153,12 +153,19 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		Properties: schemas,
 	}
 	for _, field := range class.fields {
-		schemas[field.name] = spec.Schema{
+		var name = field.jsonName
+		if len(name) == 0 {
+			name = field.name
+		}
+		schema := spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type:        []string{field.typeName},
-				Description: "zhushi",
+				Description: field.comment,
 			},
 		}
+		if len(field.typeName) > 0 {
+			schema.Type = []string{field.typeName}
+		}
+		schemas[name] = schema
 	}
 	ref, _ := spec.NewRef("#/definitions/" + class.Name)
 	swagger.definitions[class.Name] = &ref
