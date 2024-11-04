@@ -9,14 +9,14 @@ const (
 	TypeStruct
 )
 
-// 定义了Struct中的一个个属性
+// 定义了Struct中的一个个属性, 也用于函数的参数和返回值
 type Field struct {
 	class     interface{}
-	typeName  string
+	typeName  string //类型名
 	pkg       *Package
 	isPointer bool
 	name      string
-	ownerInfo string
+	ownerInfo string //记录用于打印日志的信息
 }
 
 func (field *Field) parse(fieldType ast.Expr, goFile *GoFile) {
