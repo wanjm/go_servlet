@@ -1,7 +1,11 @@
 package astinfo
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/go-openapi/spec"
@@ -117,22 +121,53 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 		}
 		operation.Parameters = parameter
 		var objRef *spec.Ref
-		if len(servlet.Results) > 1 && servlet.Results[0].class != nil {
-			objRef = swagger.getRefOfStruct(servlet.Results[0].class.(*Struct))
+		if len(servlet.Results) > 1 {
+			field0 := servlet.Results[0]
+			if field0.class == nil {
+				field0.findStruct(false)
+			}
+			objRef = swagger.getRefOfStruct(field0.class.(*Struct))
 		}
 		var response spec.Response = swagger.getSwaggerResponse(objRef)
 		operation.Responses.StatusCodeResponses[200] = response
 		paths[strings.Trim(servlet.comment.Url, "\"")] = pathItem
 	}
 }
-func (swagger *Swagger) GenerateCode() string {
+func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
+	if cfg.Token == "" {
+		return ""
+	}
 	project := swagger.project
 	for name, pkg := range project.Package {
 		_ = name
 		swagger.addServletFromPackage(pkg)
 	}
-	json, _ := swagger.swag.MarshalJSON()
-	return (string(json))
+	swaggerJson, _ := swagger.swag.MarshalJSON()
+	cmdMap := map[string]interface{}{
+		"input": string(swaggerJson),
+		"options": map[string]interface{}{
+			"targetEndpointFolderId":        cfg.ServletFolder,
+			"targetSchemaFolderId":          cfg.SchemaFolder,
+			"endpointOverwriteBehavior":     "OVERWRITE_EXISTING",
+			"schemaOverwriteBehavior":       "OVERWRITE_EXISTING",
+			"updateFolderOfChangedEndpoint": false,
+			"prependBasePath":               false,
+		},
+	}
+	data, _ := json.Marshal(cmdMap)
+	url := "https://api.apifox.com/v1/projects/" + cfg.ProjectId + "/import-openapi?locale=zh-CN"
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Apifox-Api-Version", "2024-03-28")
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("User-Agent", "Apifox/1.0.0 (https://apifox.com)")
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Printf("error:%v\n", err)
+	}
+	content, _ := io.ReadAll(response.Body)
+	fmt.Printf("response:%v\n", string(content))
+	return (string(data))
 }
 func (swagger *Swagger) addServletFromPackage(pkg *Package) {
 	swagger.addServletFromFunctionManager(&pkg.FunctionManager)
@@ -181,7 +216,7 @@ func (swagger *Swagger) initResponseResult() {
 		fields: []*Field{
 			{
 				name:     "code",
-				typeName: "int",
+				typeName: "integer",
 			},
 			{
 				name:     "msg",

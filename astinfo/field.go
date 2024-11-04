@@ -13,8 +13,8 @@ const (
 // 定义了Struct中的一个个属性, 也用于函数的参数和返回值
 type Field struct {
 	class     interface{}
-	typeName  string //类型名
-	pkg       *Package
+	typeName  string   //类型名
+	pkg       *Package //class所在的包
 	isPointer bool
 	name      string
 	jsonName  string

@@ -18,6 +18,7 @@ type server struct {
 	initFuncs     []string    //initAll 调用的init函数；
 }
 type Project struct {
+	cfg     *Config
 	Path    string              // 项目所在的目录
 	Mod     string              // 该项目的mode名字
 	Package map[string]*Package //key是mod的全路径
@@ -51,12 +52,12 @@ func (project *Project) Parse() {
 	project.parseDir(project.Path)
 }
 
-func CreateProject(path string, init bool) *Project {
+func CreateProject(path string, cfg *Config) *Project {
 	project := Project{
 		Path:         path,
 		Package:      make(map[string]*Package),
 		initiatorMap: make(map[*Struct]*Initiators),
-		initMain:     init,
+		cfg:          cfg,
 		servers:      make(map[string]*server),
 		// creators: make(map[*Struct]*Initiator),
 	}
@@ -252,7 +253,7 @@ func (project *Project) GenerateCode() {
 	// project.genInitRoute(file)
 	project.genPrepare(file)
 	file.save()
-	fmt.Print(NewSwagger(project).GenerateCode())
+	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
 }
 
 func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {

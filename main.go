@@ -25,7 +25,11 @@ func main() {
 		return
 	}
 	os.Chdir(path)
-	var project = astinfo.CreateProject(path, *init)
+	cfg := astinfo.Config{
+		InitMain: *init,
+	}
+	cfg.Load()
+	var project = astinfo.CreateProject(path, &cfg)
 	project.Parse()
 	project.GenerateCode()
 }
