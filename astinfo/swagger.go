@@ -49,6 +49,12 @@ func NewSwagger(project *Project) (result *Swagger) {
 		project:     project,
 		definitions: make(map[string]*spec.Ref),
 	}
+	if len(project.cfg.SwaggerCfg.UrlPrefix) > 0 {
+		if !strings.HasPrefix(project.cfg.SwaggerCfg.UrlPrefix, "/") {
+			project.cfg.SwaggerCfg.UrlPrefix = "/" + project.cfg.SwaggerCfg.UrlPrefix
+		}
+		strings.TrimSuffix(project.cfg.SwaggerCfg.UrlPrefix, "/")
+	}
 	result.initResponseResult()
 	return
 }
@@ -130,7 +136,7 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 		}
 		var response spec.Response = swagger.getSwaggerResponse(objRef)
 		operation.Responses.StatusCodeResponses[200] = response
-		paths[strings.Trim(servlet.comment.Url, "\"")] = pathItem
+		paths[swagger.project.cfg.SwaggerCfg.UrlPrefix+strings.Trim(servlet.comment.Url, "\"")] = pathItem
 	}
 }
 func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
@@ -167,6 +173,7 @@ func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
 	}
 	content, _ := io.ReadAll(response.Body)
 	fmt.Printf("response:%v\n", string(content))
+	// fmt.Printf("swagger:%s\n", cmdMap["input"])
 	return (string(data))
 }
 func (swagger *Swagger) addServletFromPackage(pkg *Package) {
@@ -187,6 +194,7 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		Type:       []string{"object"},
 		Properties: schemas,
 	}
+	rawpkg := swagger.project.getPackage(GolangRawType, false)
 	for _, field := range class.fields {
 		var name = field.jsonName
 		if len(name) == 0 {
@@ -197,8 +205,12 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 				Description: field.comment,
 			},
 		}
-		if len(field.typeName) > 0 {
-			schema.Type = []string{field.typeName}
+		typeName := field.typeName
+		if len(typeName) > 0 {
+			if field.pkg == rawpkg {
+				typeName = getRawTypeString(typeName)
+			}
+			schema.Type = []string{typeName}
 		}
 		schemas[name] = schema
 	}
@@ -211,16 +223,19 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 }
 
 func (swagger *Swagger) initResponseResult() {
+	rawpkg := swagger.project.getPackage(GolangRawType, false)
 	class := Struct{
 		Name: "ResponseResult",
 		fields: []*Field{
 			{
 				name:     "code",
-				typeName: "integer",
+				typeName: "int",
+				pkg:      rawpkg,
 			},
 			{
 				name:     "msg",
 				typeName: "string",
+				pkg:      rawpkg,
 			},
 			{
 				name: "obj",

@@ -88,6 +88,23 @@ func (project *Project) initRawPackage() {
 	rawPkg.getStruct("map", true)
 }
 
+func getRawTypeString(typeName string) string {
+	switch typeName {
+	case "string":
+		return "string"
+	case "array":
+		return "array"
+	case "map":
+		return "object"
+	case "bool":
+		return "bool"
+	case "float32", "float64":
+		return "number"
+	default:
+		return "integer"
+	}
+}
+
 func (project *Project) addServer(name string) {
 	if _, ok := project.servers[name]; !ok {
 		project.servers[name] = &server{name: name}
