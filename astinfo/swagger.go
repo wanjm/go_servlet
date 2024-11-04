@@ -155,7 +155,7 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 	for _, field := range class.fields {
 		var name = field.jsonName
 		if len(name) == 0 {
-			name = field.name
+			name = firstLower(field.name)
 		}
 		schema := spec.Schema{
 			SchemaProps: spec.SchemaProps{
