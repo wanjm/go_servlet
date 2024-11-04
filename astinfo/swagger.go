@@ -73,35 +73,27 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 		pathItem := spec.PathItem{}
 		operation := initOperation()
 		var parameter []spec.Parameter
-		var response spec.Response = spec.Response{
-			ResponseProps: spec.ResponseProps{
-				Schema: &spec.Schema{
-					SchemaProps: spec.SchemaProps{
-						Properties: map[string]spec.Schema{
-							"code": {
-								SchemaProps: spec.SchemaProps{
-									Type: []string{"integer"},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+		var response spec.Response = getSwaggerResponse()
 		switch servlet.comment.method {
 		case POST, "":
 			pathItem.Post = operation
 			var props spec.SchemaProps
+			_ = props
 			if len(servlet.Params) > 1 && servlet.Params[1].class != nil {
-				if class, ok := servlet.Params[1].class.(*Struct); ok {
-					props = class.getStructProperties()
+				ref, err := spec.NewRef("#/definitions/" + servlet.Params[1].class.(*Struct).Name)
+				if err != nil {
+					fmt.Printf("servlet %s has invalid class %s\n", servlet.Name, servlet.Params[1].class.(*Struct).Name)
+					continue
 				}
 				parameter = append(parameter, spec.Parameter{
 					ParamProps: spec.ParamProps{
-						Name: "body",
-						In:   "body",
+						Name:     "body",
+						In:       "body",
+						Required: true,
 						Schema: &spec.Schema{
-							SchemaProps: props,
+							SchemaProps: spec.SchemaProps{
+								Ref: ref,
+							},
 						},
 					},
 				})
@@ -141,4 +133,26 @@ func (class *Struct) getStructProperties() (result spec.SchemaProps) {
 		}
 	}
 	return
+}
+
+func getSwaggerResponse() spec.Response {
+	respoinseResult, _ := spec.NewRef("#/definitions/ResponseResult")
+	var result = spec.Response{
+		ResponseProps: spec.ResponseProps{
+			Schema: &spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					AllOf: []spec.Schema{{
+						SchemaProps: spec.SchemaProps{
+							Ref: respoinseResult,
+						},
+					}, {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+						},
+					}},
+				},
+			},
+		},
+	}
+	return result
 }
