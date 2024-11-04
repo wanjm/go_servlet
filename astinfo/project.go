@@ -223,7 +223,6 @@ func (project *Project) GenerateCode() {
 	file := createGenedFile("project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
-	project.initSwagger()
 	// project.generateInit(&content)
 
 	// 根据情况生成filter函数；
@@ -245,7 +244,6 @@ func (project *Project) GenerateCode() {
 		// fmt.Printf("deal package %s\n", name)
 		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
-		pkg.addServletToSwagger()
 		pkg.file.save()
 	}
 	project.genBasicCode(file)
@@ -253,9 +251,8 @@ func (project *Project) GenerateCode() {
 	project.genRpcClientVariable(file)
 	// project.genInitRoute(file)
 	project.genPrepare(file)
-	json, _ := project.swag.MarshalJSON()
-	fmt.Println(string(json))
 	file.save()
+	fmt.Print(NewSwagger(project).GenerateCode())
 }
 
 func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {

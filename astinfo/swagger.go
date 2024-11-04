@@ -7,8 +7,15 @@ import (
 	"github.com/go-openapi/spec"
 )
 
-func (project *Project) initSwagger() {
-	project.swag = &spec.Swagger{
+type Swagger struct {
+	swag           *spec.Swagger
+	project        *Project
+	definitions    map[string]*spec.Ref
+	responseResult *Struct
+}
+
+func NewSwagger(project *Project) (result *Swagger) {
+	var swag = &spec.Swagger{
 		SwaggerProps: spec.SwaggerProps{
 			Swagger: "2.0",
 			Info: &spec.Info{
@@ -33,6 +40,13 @@ func (project *Project) initSwagger() {
 			Extensions: nil,
 		},
 	}
+	result = &Swagger{
+		swag:        swag,
+		project:     project,
+		definitions: make(map[string]*spec.Ref),
+	}
+	result.initResponseResult()
+	return
 }
 
 func initOperation() *spec.Operation {
@@ -64,7 +78,8 @@ func initOperation() *spec.Operation {
 		},
 	}
 }
-func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) {
+func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
+	paths := swagger.swag.Paths.Paths
 	for _, servlet := range pkg.servlets {
 		if servlet.comment.Url == "" {
 			fmt.Printf("servlet %s has no url\n", servlet.Name)
@@ -73,18 +88,13 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 		pathItem := spec.PathItem{}
 		operation := initOperation()
 		var parameter []spec.Parameter
-		var response spec.Response = getSwaggerResponse()
 		switch servlet.comment.method {
 		case POST, "":
 			pathItem.Post = operation
 			var props spec.SchemaProps
 			_ = props
 			if len(servlet.Params) > 1 && servlet.Params[1].class != nil {
-				ref, err := spec.NewRef("#/definitions/" + servlet.Params[1].class.(*Struct).Name)
-				if err != nil {
-					fmt.Printf("servlet %s has invalid class %s\n", servlet.Name, servlet.Params[1].class.(*Struct).Name)
-					continue
-				}
+				ref := swagger.getRefOfStruct(servlet.Params[1].class.(*Struct))
 				parameter = append(parameter, spec.Parameter{
 					ParamProps: spec.ParamProps{
 						Name:     "body",
@@ -92,7 +102,7 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 						Required: true,
 						Schema: &spec.Schema{
 							SchemaProps: spec.SchemaProps{
-								Ref: ref,
+								Ref: *ref,
 							},
 						},
 					},
@@ -106,21 +116,39 @@ func (pkg *FunctionManager) addServletToSwagger(paths map[string]spec.PathItem) 
 			continue
 		}
 		operation.Parameters = parameter
+		var objRef *spec.Ref
+		if len(servlet.Results) > 1 && servlet.Results[0].class != nil {
+			objRef = swagger.getRefOfStruct(servlet.Results[0].class.(*Struct))
+		}
+		var response spec.Response = swagger.getSwaggerResponse(objRef)
 		operation.Responses.StatusCodeResponses[200] = response
 		paths[strings.Trim(servlet.comment.Url, "\"")] = pathItem
 	}
 }
-func (pkg *Package) addServletToSwagger() {
-	paths := pkg.Project.swag.Paths.Paths
-	pkg.FunctionManager.addServletToSwagger(paths)
+func (swagger *Swagger) GenerateCode() string {
+	project := swagger.project
+	for name, pkg := range project.Package {
+		_ = name
+		swagger.addServletFromPackage(pkg)
+	}
+	json, _ := swagger.swag.MarshalJSON()
+	return (string(json))
+}
+func (swagger *Swagger) addServletFromPackage(pkg *Package) {
+	swagger.addServletFromFunctionManager(&pkg.FunctionManager)
 	for _, class := range pkg.StructMap {
-		class.addServletToSwagger(paths)
+		if class.comment.serverType == SERVLET {
+			swagger.addServletFromFunctionManager(&class.FunctionManager)
+		}
 	}
 }
 
-func (class *Struct) getStructProperties() (result spec.SchemaProps) {
+func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
+	if ref, ok := swagger.definitions[class.Name]; ok {
+		return ref
+	}
 	schemas := make(map[string]spec.Schema)
-	result = spec.SchemaProps{
+	result := spec.SchemaProps{
 		Type:       []string{"object"},
 		Properties: schemas,
 	}
@@ -132,27 +160,65 @@ func (class *Struct) getStructProperties() (result spec.SchemaProps) {
 			},
 		}
 	}
-	return
+	ref, _ := spec.NewRef("#/definitions/" + class.Name)
+	swagger.definitions[class.Name] = &ref
+	swagger.swag.Definitions[class.Name] = spec.Schema{
+		SchemaProps: result,
+	}
+	return &ref
 }
 
-func getSwaggerResponse() spec.Response {
-	respoinseResult, _ := spec.NewRef("#/definitions/ResponseResult")
+func (swagger *Swagger) initResponseResult() {
+	class := Struct{
+		Name: "ResponseResult",
+		fields: []*Field{
+			{
+				name:     "code",
+				typeName: "int",
+			},
+			{
+				name:     "msg",
+				typeName: "string",
+			},
+			{
+				name: "obj",
+			},
+		},
+	}
+	swagger.getRefOfStruct(&class)
+	swagger.responseResult = &class
+}
+
+func (swagger *Swagger) getSwaggerResponse(objRef *spec.Ref) spec.Response {
+	respoinseResult := swagger.getRefOfStruct(swagger.responseResult)
 	var result = spec.Response{
 		ResponseProps: spec.ResponseProps{
 			Schema: &spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					AllOf: []spec.Schema{{
 						SchemaProps: spec.SchemaProps{
-							Ref: respoinseResult,
-						},
-					}, {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Ref: *respoinseResult,
 						},
 					}},
 				},
 			},
 		},
 	}
+	if objRef == nil {
+		return result
+	}
+	ref := spec.Schema{
+		SchemaProps: spec.SchemaProps{
+			Type: []string{"object"},
+			Properties: map[string]spec.Schema{
+				"obj": {
+					SchemaProps: spec.SchemaProps{
+						Ref: *objRef,
+					},
+				},
+			},
+		},
+	}
+	result.Schema.AllOf = append(result.Schema.AllOf, ref)
 	return result
 }
