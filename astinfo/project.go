@@ -199,14 +199,14 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 	type UrlFilter struct {
 		path     string
 		//此处的basic.Error在代码生成时是写死的，还不够灵活，且宿主工程包中需要定义一个filter，否则代码会报告basic找不到
-		function func(c context.Context, Request *http.Request) (error basic.Error)
+		function func(c context.Context, Request **http.Request) (error basic.Error)
 	}
 	func registerFilter(router *gin.Engine, urlFilters []*UrlFilter) {
 		router.Use(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
 			for _, filter := range urlFilters {
 				if strings.Contains(path, filter.path) {
-					error := filter.function(ctx, ctx.Request)
+					error := filter.function(ctx, &ctx.Request)
 					if error.Code != 0 {
 						ctx.JSON(400, error)
 						ctx.Abort()
