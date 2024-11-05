@@ -20,4 +20,5 @@ const (
 	Filter    = "filter"
 	Servlet   = "servlet" //用于定义struct是servlet，所以默认groupName是servlet
 	Prpc      = "prpc"    //用于定义struct是prpc，所以默认groupName是prpc
+	Security  = "security"
 )

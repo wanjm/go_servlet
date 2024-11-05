@@ -49,14 +49,16 @@ const (
 
 // @goservlet url="/test" filter=[prpc|servlet|""]; creator;initiator;websocket;
 type functionComment struct {
-	serverName   string
-	Url          string
-	method       string
+	serverName   string // server group name
+	Url          string // url
+	method       string // http方法，GET,POST，默认是POST
 	isDeprecated bool
-	funcType     int
+	funcType     int //函数类型，filter，servlet，websocket，prpc，initiator,creator
+	security     []string
 }
 
 func (comment *functionComment) dealValuePair(key, value string) {
+	key = strings.ToLower(key)
 	switch key {
 	case Url:
 		comment.Url = value
@@ -86,6 +88,8 @@ func (comment *functionComment) dealValuePair(key, value string) {
 	case Websocket:
 		comment.method = GET
 		comment.funcType = WEBSOCKET
+	case Security:
+		comment.security = strings.Split(value, ",")
 	default:
 		fmt.Printf("unknown key '%s' in function comment\n", key)
 	}

@@ -13,9 +13,9 @@ import (
 
 type server struct {
 	name          string
-	initRouteFuns []string    //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
-	urlFilters    []*Function //记录url过滤器函数
-	initFuncs     []string    //initAll 调用的init函数；
+	initRouteFuns []string             //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	urlFilters    map[string]*Function //记录url过滤器函数
+	initFuncs     []string             //initAll 调用的init函数；
 }
 type Project struct {
 	cfg     *Config
@@ -112,11 +112,15 @@ func (project *Project) addServer(name string) {
 	}
 }
 func (project *Project) addUrlFilter(function *Function, serverName string) {
-	if s, ok := project.servers[serverName]; ok {
-		s.urlFilters = append(s.urlFilters, function)
+	var s *server
+	if s = project.servers[serverName]; s == nil {
+		s = &server{name: serverName, urlFilters: make(map[string]*Function)}
+		project.servers[serverName] = s
+	}
+	if filter, ok := s.urlFilters[function.comment.Url]; ok {
+		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, filter.pkg.modPath)
 	} else {
-		project.servers[serverName] = &server{name: serverName, urlFilters: []*Function{function}}
-		// fmt.Printf("server '%s' not found for filter\n", serverName)
+		s.urlFilters[function.comment.Url] = function
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {

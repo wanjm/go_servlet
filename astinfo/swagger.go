@@ -53,7 +53,7 @@ func NewSwagger(project *Project) (result *Swagger) {
 		if !strings.HasPrefix(project.cfg.SwaggerCfg.UrlPrefix, "/") {
 			project.cfg.SwaggerCfg.UrlPrefix = "/" + project.cfg.SwaggerCfg.UrlPrefix
 		}
-		strings.TrimSuffix(project.cfg.SwaggerCfg.UrlPrefix, "/")
+		project.cfg.SwaggerCfg.UrlPrefix = strings.TrimSuffix(project.cfg.SwaggerCfg.UrlPrefix, "/")
 	}
 	result.initResponseResult()
 	return
@@ -91,7 +91,8 @@ func initOperation() *spec.Operation {
 func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 	paths := swagger.swag.Paths.Paths
 	for _, servlet := range pkg.servlets {
-		if servlet.comment.Url == "" {
+		var url = strings.Trim(servlet.comment.Url, "\"")
+		if len(url) == 0 {
 			fmt.Printf("servlet %s has no url\n", servlet.Name)
 			continue
 		}
@@ -134,9 +135,32 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 			}
 			objRef = swagger.getRefOfStruct(field0.class.(*Struct))
 		}
+		// addSecurity(servlet, operation) apix中使用了全局的header，暂时不显示
 		var response spec.Response = swagger.getSwaggerResponse(objRef)
 		operation.Responses.StatusCodeResponses[200] = response
-		paths[swagger.project.cfg.SwaggerCfg.UrlPrefix+strings.Trim(servlet.comment.Url, "\"")] = pathItem
+		paths[swagger.project.cfg.SwaggerCfg.UrlPrefix+url] = pathItem
+	}
+}
+func addSecurity(function *Function, operation *spec.Operation) {
+	for _, header := range function.comment.security {
+		operation.Security = append(operation.Security, map[string][]string{
+			header: {"string"},
+		})
+	}
+	for _, s := range function.pkg.Project.servers {
+		if s.name == function.comment.serverName {
+			for url, filter := range s.urlFilters {
+				servletUrl := strings.Trim(filter.comment.Url, "\"")
+				filterUrl := strings.Trim(url, "\"")
+				if strings.Contains(servletUrl, filterUrl) {
+					for _, header := range filter.comment.security {
+						operation.Security = append(operation.Security, map[string][]string{
+							header: {"string"},
+						})
+					}
+				}
+			}
+		}
 	}
 }
 func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
