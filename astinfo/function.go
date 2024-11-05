@@ -213,8 +213,16 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	for i := 1; i < len(method.Params); i++ {
 		param := method.Params[i]
 		name := fmt.Sprintf("arg%d", i)
-		sb.WriteString("var " + name + " " + param.class.(*Struct).Name + "\n")
-		interfaceArgs += "&" + name + ","
+		variable := Variable{
+			isPointer: param.isPointer,
+			class:     param.findStruct(true),
+			name:      "request",
+		}
+		sb.WriteString(name + ":=" + variable.generateCode(receiverPrefix, file) + "\n")
+		if !param.isPointer {
+			interfaceArgs += "&" + name + ","
+		}
+		interfaceArgs += name + ","
 		realParams += "," + name
 	}
 
@@ -224,12 +232,21 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 		return
 	}
 	`)
-	sb.WriteString(fmt.Sprintf(`response, err := %s%s(c%s)
+	var objString string
+	var objResult string
+	// 返回值仅有一个是Error；
+	if len(method.Results) == 2 {
+		objResult = "response,"
+		objString = "\"o\":response,"
+	}
+	// 返回值有两个，一个是response，一个是Error；
+	// 代码暂不检查是否超过两个；
+	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
 		c.JSON(200, map[string]interface{}{
-			"c":err.Code,
-			"o":response,
+			%s
+			"c":    err.Code,
 		})
-	`, receiverPrefix, method.Name, realParams))
+	`, objResult, receiverPrefix, method.Name, realParams, objString))
 	sb.WriteString("})\n") //end of router.POST
 	return sb.String()
 }
@@ -241,7 +258,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb strings.Builder
 	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
-	var requestName string
+	var realParams string
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
 		var variableCode string
@@ -270,7 +287,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			return
 		}
 		`)
-		requestName = ",request"
+		realParams = ",request"
 	}
 	var objString string
 	var objResult string
@@ -287,7 +304,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			Code:    err.Code,
 			Message: err.Message,
 		})
-	`, objResult, receiverPrefix, method.Name, requestName, objString))
+	`, objResult, receiverPrefix, method.Name, realParams, objString))
 	sb.WriteString("})\n")
 
 	return sb.String()
