@@ -65,6 +65,9 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		if comment.funcType == NOUSAGE {
 			//默认是servlet
 			comment.funcType = SERVLET
+			if len(comment.method) == 0 {
+				comment.method = POST
+			}
 		}
 	case Creator:
 		comment.funcType = CREATOR
@@ -90,6 +93,8 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.funcType = WEBSOCKET
 	case Security:
 		comment.security = strings.Split(value, ",")
+	case ConstMethod:
+		comment.method = strings.ToUpper(value)
 	default:
 		fmt.Printf("unknown key '%s' in function comment\n", key)
 	}
@@ -120,6 +125,10 @@ func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
 
 func (method *Function) Parse() bool {
 	parseComment(method.function.Doc, &method.comment)
+	// 跳过不感兴趣的Func；
+	if method.comment.funcType == NOUSAGE {
+		return true
+	}
 	method.parseParameter(method.function.Type)
 	switch method.comment.funcType {
 	case CREATOR:
@@ -257,7 +266,7 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb strings.Builder
-	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url + ", func(c *gin.Context) {\n")
 	var realParams string
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
@@ -282,7 +291,10 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
 		}
 		sb.WriteString(variableCode)
-		sb.WriteString(`if err := c.ShouldBindJSON(request); err != nil {
+
+		sb.WriteString(`
+		// 利用gin的自动绑定功能，将request绑定到request对象上；
+		if err := c.ShouldBind(request); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
@@ -299,7 +311,12 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
 	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
-		c.JSON(200, Response{
+		var code=200;
+		if err.Code==500 {
+			// 临时兼容health check;
+			code=500
+		}
+		c.JSON(code, Response{
 			%s
 			Code:    err.Code,
 			Message: err.Message,
