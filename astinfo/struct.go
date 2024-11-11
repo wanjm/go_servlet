@@ -58,7 +58,7 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 		classField := Field{
 			ownerInfo: "struct Name is " + class.Name,
 		}
-		classField.parse(field.Type, goFile)
+		classField.parse(field, goFile)
 		for _, name := range field.Names {
 			oneClassField := classField
 			oneClassField.name = name.Name

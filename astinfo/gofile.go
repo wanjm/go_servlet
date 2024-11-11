@@ -97,7 +97,7 @@ func (goFile *GoFile) parseVariable(genDecl *ast.GenDecl) {
 		var field = Field{
 			name: name,
 		}
-		field.parse(fieldPair.Type, goFile)
+		field.parseType(fieldPair.Type, goFile)
 		intface := field.findInterface()
 		if intface != nil {
 			if intface.config != nil {

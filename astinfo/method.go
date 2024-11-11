@@ -29,5 +29,6 @@ func (method *Method) Parse() bool {
 	method.Receiver = method.goFile.pkg.getStruct(nameIndent.Name, true)
 	method.funcManager = &method.Receiver.FunctionManager
 	method.Function.Parse()
+	method.Function.comment.serverName = method.Receiver.comment.groupName
 	return true
 }

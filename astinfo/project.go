@@ -7,15 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-openapi/spec"
 )
 
 type server struct {
 	name          string
-	initRouteFuns []string    //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
-	urlFilters    []*Function //记录url过滤器函数
-	initFuncs     []string    //initAll 调用的init函数；
+	initRouteFuns []string             //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	urlFilters    map[string]*Function //记录url过滤器函数
+	initFuncs     []string             //initAll 调用的init函数；
 }
 type Project struct {
+	cfg     *Config
 	Path    string              // 项目所在的目录
 	Mod     string              // 该项目的mode名字
 	Package map[string]*Package //key是mod的全路径
@@ -26,6 +29,7 @@ type Project struct {
 	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	initMain         bool
+	swag             *spec.Swagger
 }
 
 func (project *Project) Parse() {
@@ -48,17 +52,19 @@ func (project *Project) Parse() {
 	project.parseDir(project.Path)
 }
 
-func CreateProject(path string, init bool) Project {
+func CreateProject(path string, cfg *Config) *Project {
 	project := Project{
 		Path:         path,
 		Package:      make(map[string]*Package),
 		initiatorMap: make(map[*Struct]*Initiators),
-		initMain:     init,
+		cfg:          cfg,
 		servers:      make(map[string]*server),
 		// creators: make(map[*Struct]*Initiator),
 	}
+	// 由于Package中有指向Project的指针，所以RawPackage指向了此处的project，如果返回对象，则出现了两个Project，一个是返回的Project，一个是RawPackage中的Project；
+	// 返回*Project才能保证这是一个Project对象；
 	project.initRawPackage()
-	return project
+	return &project
 }
 func (project *Project) initRawPackage() {
 	rawPkg := project.getPackage(GolangRawType, true) //创建原始类型
@@ -82,6 +88,23 @@ func (project *Project) initRawPackage() {
 	rawPkg.getStruct("map", true)
 }
 
+func getRawTypeString(typeName string) string {
+	switch typeName {
+	case "string":
+		return "string"
+	case "array":
+		return "array"
+	case "map":
+		return "object"
+	case "bool":
+		return "bool"
+	case "float32", "float64":
+		return "number"
+	default:
+		return "integer"
+	}
+}
+
 func (project *Project) addServer(name string) {
 	if _, ok := project.servers[name]; !ok {
 		project.servers[name] = &server{name: name}
@@ -89,11 +112,15 @@ func (project *Project) addServer(name string) {
 	}
 }
 func (project *Project) addUrlFilter(function *Function, serverName string) {
-	if s, ok := project.servers[serverName]; ok {
-		s.urlFilters = append(s.urlFilters, function)
+	var s *server
+	if s = project.servers[serverName]; s == nil {
+		s = &server{name: serverName, urlFilters: make(map[string]*Function)}
+		project.servers[serverName] = s
+	}
+	if filter, ok := s.urlFilters[function.comment.Url]; ok {
+		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, filter.pkg.modPath)
 	} else {
-		project.servers[serverName] = &server{name: serverName, urlFilters: []*Function{function}}
-		// fmt.Printf("server '%s' not found for filter\n", serverName)
+		s.urlFilters[function.comment.Url] = function
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
@@ -172,14 +199,14 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 	type UrlFilter struct {
 		path     string
 		//此处的basic.Error在代码生成时是写死的，还不够灵活，且宿主工程包中需要定义一个filter，否则代码会报告basic找不到
-		function func(c context.Context, Request *http.Request) (error basic.Error)
+		function func(c context.Context, Request **http.Request) (error basic.Error)
 	}
 	func registerFilter(router *gin.Engine, urlFilters []*UrlFilter) {
 		router.Use(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
 			for _, filter := range urlFilters {
 				if strings.Contains(path, filter.path) {
-					error := filter.function(ctx, ctx.Request)
+					error := filter.function(ctx, &ctx.Request)
 					if error.Code != 0 {
 						ctx.JSON(400, error)
 						ctx.Abort()
@@ -234,7 +261,9 @@ func (project *Project) GenerateCode() {
 		pkg.generateInitorCode()
 	}
 
-	for _, pkg := range project.Package {
+	for name, pkg := range project.Package {
+		_ = name
+		// fmt.Printf("deal package %s\n", name)
 		pkg.GenerateRouteCode()
 		pkg.GenerateRpcClientCode()
 		pkg.file.save()
@@ -245,6 +274,7 @@ func (project *Project) GenerateCode() {
 	// project.genInitRoute(file)
 	project.genPrepare(file)
 	file.save()
+	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
 }
 
 func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {
