@@ -17,8 +17,6 @@ func (config *RpcInterfaceConfig) dealValuePair(key, value string) {
 	switch key {
 	case "host":
 		config.Host = value
-	case "port":
-		config.Port = value
 	case "rpcClient":
 		config.IsRpcClient = true
 	default:

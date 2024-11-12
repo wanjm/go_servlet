@@ -308,11 +308,11 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	file.getImport("net/http", "http")
 
 	var content strings.Builder
-	content.WriteString("func initRpcClient() {\n")
+	content.WriteString("func initRpcClient() {\n//初始化rpc客户端,由于Prefix，是Host可以通过变量配置，所以需要写到basic中，因为本程序默认可见basic,basic可见性由filter引入，否则需要增加代码复杂度，暂时不支持，后续通过扫描变量的方式添加\n")
 	for _, field := range funcManager.initRpcField {
 		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
 		cfg := field.pkg.getInterface(field.typeName, false).config
-		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s+\":\"+%s}}\n", impt.Name, field.name, field.typeName, cfg.Port, cfg.Host))
+		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s}}\n", impt.Name, field.name, field.typeName, cfg.Host))
 	}
 	content.WriteString("}\n")
 	content.WriteString(`
