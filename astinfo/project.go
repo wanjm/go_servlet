@@ -316,9 +316,18 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	}
 	content.WriteString("}\n")
 	content.WriteString(`
-	type RpcResult struct {
-	C int             "json:\"c\""
-	O json.RawMessage "json:\"o\""
+type Error struct {
+	Code    int    "json:\"code\""
+	Message string "json:\"message\""
+}
+
+func (error *Error) Error() string {
+	return error.Message
+}
+
+type RpcResult struct {
+	C int    "json:\"c\""
+	O [2]any "json:\"o\""
 }
 type RpcClient struct {
 	Prefix string
@@ -328,13 +337,15 @@ func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult
 	content, marError := json.Marshal(array)
 	if marError != nil {
 		fmt.Printf("%v\n", marError)
-		return RpcResult{C: 1, O: nil}
+		return RpcResult{C: 1, O: [2]interface{}{nil, json.RawMessage{}}}
 	}
 	resp, error := http.Post(client.Prefix+name, "", bytes.NewReader(content))
 	if error != nil {
 		fmt.Printf("%v\n", error)
 	}
-	var res = RpcResult{}
+	var res = RpcResult{
+		O: [2]interface{}{&Error{}, &json.RawMessage{}},
+	}
 	dec := json.NewDecoder(resp.Body)
 	dec.Decode(&res)
 	return res

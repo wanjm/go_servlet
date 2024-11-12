@@ -137,13 +137,17 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	sb.WriteString("var res = receiver.client.SendRequest(")
 	sb.WriteString(method.comment.Url)
 	sb.WriteString(", argument)\n")
-
+	file.getImport("errors", "errors")
 	sb.WriteString(`
 	if res.C != 0 {
-		return 
+		return nil, errors.New("failed to call GetTokenDetail")
 	}
-	json.Unmarshal(res.O, obj)
-	return
+	//无论object是否位指针，都需要取地址
+	json.Unmarshal(*res.O[1].(*json.RawMessage), &obj)
+	if res.O[0] != nil {
+		err = res.O[0].(error)
+	}
+	return obj, err
 }`)
 	file.getImport("encoding/json", "json")
 }
