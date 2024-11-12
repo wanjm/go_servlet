@@ -212,7 +212,6 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 						ctx.Abort()
 						return
 					}
-					break
 				}
 			}
 			ctx.Next()
@@ -403,7 +402,6 @@ type server struct {
 }
 var servers map[string]*server
 	func Run(config Config, serverName string){
-		prepare()
 		var	router  *gin.Engine = gin.Default()
 		if(config.Cors){
 			config := cors.DefaultConfig()
@@ -428,15 +426,9 @@ var servers map[string]*server
 }
 func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
-	file.getImport("sync/atomic", "atomic")
+	// file.getImport("sync/atomic", "atomic")
 	content.WriteString(`
-	var prepared atomic.Bool
-
-	func prepare() {
-		if prepared.Load() {
-			return
-		}
-		prepared.Store(true)
+	func Prepare() {
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
