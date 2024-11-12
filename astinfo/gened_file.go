@@ -85,7 +85,7 @@ func (file *GenedFile) genImport() string {
 			sb.WriteString(v.Name)
 		}
 		sb.WriteString(" \"")
-		sb.WriteString(v.Path)
+		sb.WriteString(strings.ReplaceAll(v.Path, "\\", "/"))
 		sb.WriteString("\"\n")
 	}
 	sb.WriteString(")\n")
