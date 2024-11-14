@@ -413,7 +413,8 @@ type server struct {
 }
 var servers map[string]*server
 	func Run(config Config, serverName string){
-		var	router  *gin.Engine = gin.Default()
+		var	router  *gin.Engine = gin.New()
+		router.ContextWithFallback = true
 		if(config.Cors){
 			config := cors.DefaultConfig()
 			config.AllowAllOrigins = true
