@@ -237,7 +237,10 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 
 	sb.WriteString(fmt.Sprintf("var request=[]interface{}{%s}\n", interfaceArgs))
 	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(200, map[string]interface{}{
+			"o": []any{&Error{Code: 4, Message: "param error"}},
+			"c": 0,
+		})
 		return
 	}
 	`)
@@ -246,14 +249,21 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	// 返回值仅有一个是Error；
 	if len(method.Results) == 2 {
 		objResult = "response,"
-		objString = "\"o\":response,"
+		objString = "\"o\":[]any{[code,response},"
+	} else {
+		objString = "\"o\":[]any{code},"
 	}
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
+	//${objResult} err:= ${receiverPrefix}${method.Name}(c${realParams}
 	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
+		var code any
+		if err.Code != 0 {
+			code = &Error{Code: err.Code, Message: err.Message}
+		}
 		c.JSON(200, map[string]interface{}{
 			%s
-			"c":    err.Code,
+			"c":    0,
 		})
 	`, objResult, receiverPrefix, method.Name, realParams, objString))
 	sb.WriteString("})\n") //end of router.POST
@@ -293,9 +303,12 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		sb.WriteString(variableCode)
 
 		sb.WriteString(`
-		// 利用gin的自动绑定功能，将request绑定到request对象上；
+		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(200, Response{
+			Code: 4,
+			Message: "param error",
+			})
 			return
 		}
 		`)
