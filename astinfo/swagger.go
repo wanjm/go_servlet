@@ -135,7 +135,7 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 			}
 			objRef = swagger.getRefOfStruct(field0.class.(*Struct))
 		}
-		// addSecurity(servlet, operation) apix中使用了全局的header，暂时不显示
+		addSecurity(servlet, operation) //apix中使用了全局的header，暂时不显示
 		var response spec.Response = swagger.getSwaggerResponse(objRef)
 		operation.Responses.StatusCodeResponses[200] = response
 		paths[swagger.project.cfg.SwaggerCfg.UrlPrefix+url] = pathItem
@@ -235,6 +235,11 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 				typeName = getRawTypeString(typeName)
 			}
 			schema.Type = []string{typeName}
+			if typeName == "array" {
+				schema.Items = &spec.SchemaOrArray{
+					Schema: &spec.Schema{},
+				}
+			}
 		}
 		schemas[name] = schema
 	}
