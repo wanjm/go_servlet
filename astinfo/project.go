@@ -106,12 +106,18 @@ func getRawTypeString(typeName string) string {
 }
 
 func (project *Project) addServer(name string) {
+	if len(name) == 0 {
+		fmt.Printf("WARN: server name should not empty\n")
+	}
 	if _, ok := project.servers[name]; !ok {
 		project.servers[name] = &server{name: name}
 		return
 	}
 }
 func (project *Project) addUrlFilter(function *Function, serverName string) {
+	if len(serverName) == 0 {
+		fmt.Printf("WARN: server name should not empty for filter %s in file %s\n", function.Name, function.goFile.path)
+	}
 	var s *server
 	if s = project.servers[serverName]; s == nil {
 		s = &server{name: serverName, urlFilters: make(map[string]*Function)}
@@ -363,6 +369,9 @@ func (project *Project) addInitRoute(routerName string, serverName string) {
 	if s, ok := project.servers[serverName]; ok {
 		s.initRouteFuns = append(s.initRouteFuns, routerName)
 	} else {
+		if len(serverName) == 0 {
+			fmt.Printf("WARN: server name should not empty for router %s\n", routerName)
+		}
 		project.servers[serverName] = &server{name: serverName, initRouteFuns: []string{routerName}}
 	}
 }
@@ -455,6 +464,7 @@ func (Project *Project) genPrepare(file *GenedFile) {
 	var oneResult *Field
 
 	for _, server := range Project.servers {
+		fmt.Printf("generate code for server '%s'\n", server.name)
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
 		content.WriteString("filters: []*UrlFilter{\n")
 		for _, filter := range server.urlFilters {
