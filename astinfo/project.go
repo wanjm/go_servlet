@@ -28,7 +28,6 @@ type Project struct {
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
 	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
-	initMain         bool
 	swag             *spec.Swagger
 }
 
@@ -493,7 +492,7 @@ func (Project *Project) genPrepare(file *GenedFile) {
 
 func (project *Project) genInitMain() {
 	//如果是空目录，或者init为true；则生成main.go 和basic.go的Error类；
-	if !project.initMain {
+	if !project.cfg.InitMain {
 		return
 	}
 	var content strings.Builder
