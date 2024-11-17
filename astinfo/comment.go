@@ -6,7 +6,8 @@ import (
 )
 
 const TagPrefix = "@goservlet"
-const GolangRawType = "rawType"
+
+// const GolangRawType = "rawType"
 
 type Comment interface {
 	dealValuePair(key, value string)

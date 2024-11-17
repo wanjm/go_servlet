@@ -218,7 +218,7 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		Type:       []string{"object"},
 		Properties: schemas,
 	}
-	rawpkg := swagger.project.getPackage(GolangRawType, false)
+	rawpkg := swagger.project.rawPkg
 	/*
 		"expireType": { //结构体格式
 			"$ref": "#/definitions/schema.ExpireType"
@@ -271,7 +271,7 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 }
 
 func (swagger *Swagger) initResponseResult() {
-	rawpkg := swagger.project.getPackage(GolangRawType, false)
+	rawpkg := swagger.project.rawPkg
 	class := Struct{
 		Name: "ResponseResult",
 		fields: []*Field{

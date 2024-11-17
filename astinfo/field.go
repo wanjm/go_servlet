@@ -48,7 +48,7 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
 	if _, ok := fieldType.(*ast.ArrayType); ok {
-		rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
+		rawPkg := goFile.pkg.Project.rawPkg
 		// 此处把类型记下来，便于后续使用，如生成swagger等；
 		class := rawPkg.getStruct("array", false)
 		if class != nil {
@@ -72,7 +72,7 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
 		if structName[0] <= 'z' && structName[0] >= 'a' {
-			rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
+			rawPkg := goFile.pkg.Project.rawPkg
 			class := rawPkg.getStruct(structName, false)
 			if class != nil {
 				field.typeName = structName

@@ -23,12 +23,14 @@ type Project struct {
 	Mod     string              // 该项目的mode名字
 	Package map[string]*Package //key是mod的全路径
 	servers map[string]*server  //key是server的名字，default，prpcserver
+	rawPkg  *Package            //仅仅是一个标记package，里面没有设计内容
 	// creators map[*Struct]*Initiator
 	initFuncs        []string                //initAll 调用的init函数；
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
 	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	swag             *spec.Swagger
+	rawTypes         []RawTypeInterface
 }
 
 func (project *Project) Parse() {
@@ -63,28 +65,17 @@ func CreateProject(path string, cfg *Config) *Project {
 	// 由于Package中有指向Project的指针，所以RawPackage指向了此处的project，如果返回对象，则出现了两个Project，一个是返回的Project，一个是RawPackage中的Project；
 	// 返回*Project才能保证这是一个Project对象；
 	project.initRawPackage()
+	// project.rawPkg = project.getPackage("", true)
 	return &project
 }
+
 func (project *Project) initRawPackage() {
-	rawPkg := project.getPackage(GolangRawType, true) //创建原始类型
-	rawPkg.getStruct("string", true)
-	rawPkg.getStruct("bool", true)
-	rawPkg.getStruct("byte", true)
-	rawPkg.getStruct("rune", true)
-	rawPkg.getStruct("int", true)
-	rawPkg.getStruct("int8", true)
-	rawPkg.getStruct("int16", true)
-	rawPkg.getStruct("int32", true)
-	rawPkg.getStruct("int64", true)
-	rawPkg.getStruct("uint", true)
-	rawPkg.getStruct("uint8", true)
-	rawPkg.getStruct("uint16", true)
-	rawPkg.getStruct("uint32", true)
-	rawPkg.getStruct("uint64", true)
-	rawPkg.getStruct("float32", true)
-	rawPkg.getStruct("float64", true)
-	rawPkg.getStruct("array", true)
-	rawPkg.getStruct("map", true)
+	project.rawPkg = project.getPackage("", true) //创建原始类型
+	for _, typeName := range []string{"string", "bool", "byte", "rune", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64", "map"} {
+		project.rawTypes = append(project.rawTypes, &RawType{Name: typeName})
+	}
+	project.rawTypes = append(project.rawTypes, &ArrayType{})
+	project.rawTypes = append(project.rawTypes, &MapType{})
 }
 
 // 获取原始类型对应到swagger的类型
