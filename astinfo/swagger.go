@@ -219,6 +219,20 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		Properties: schemas,
 	}
 	rawpkg := swagger.project.getPackage(GolangRawType, false)
+	/*
+		"expireType": { //结构体格式
+			"$ref": "#/definitions/schema.ExpireType"
+		},
+		"expireValue": { //原始类型格式
+			"type": "integer"
+		},
+		"gradeIds": {  //数组格式
+			"type": "array",
+			"items": {
+				"type": "integer"
+			}
+		},
+	*/
 	for _, field := range class.fields {
 		var name = field.jsonName
 		if len(name) == 0 {
@@ -232,14 +246,19 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		typeName := field.typeName
 		if len(typeName) > 0 {
 			if field.pkg == rawpkg {
+				//原始类型
 				typeName = getRawTypeString(typeName)
-			}
-			schema.Type = []string{typeName}
-			if typeName == "array" {
-				schema.Items = &spec.SchemaOrArray{
-					Schema: &spec.Schema{},
+				schema.Type = []string{typeName}
+				if typeName == "array" {
+					schema.Items = &spec.SchemaOrArray{
+						Schema: &spec.Schema{},
+					}
 				}
+			} else {
+				//数组格式
+				schema.Ref = *swagger.getRefOfStruct(field.class.(*Struct))
 			}
+
 		}
 		schemas[name] = schema
 	}

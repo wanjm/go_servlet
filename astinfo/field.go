@@ -49,6 +49,7 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	// 内置slice类型；
 	if _, ok := fieldType.(*ast.ArrayType); ok {
 		rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
+		// 此处把类型记下来，便于后续使用，如生成swagger等；
 		class := rawPkg.getStruct("array", false)
 		if class != nil {
 			field.typeName = "array"

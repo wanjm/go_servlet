@@ -87,6 +87,7 @@ func (project *Project) initRawPackage() {
 	rawPkg.getStruct("map", true)
 }
 
+// 获取原始类型对应到swagger的类型
 func getRawTypeString(typeName string) string {
 	switch typeName {
 	case "string":
