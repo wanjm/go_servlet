@@ -214,17 +214,18 @@ func addSecurity(function *Function, operation *spec.Operation) {
 	}
 }
 func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
-	if cfg.Token == "" {
-		return ""
-	}
+
 	project := swagger.project
 	for name, pkg := range project.Package {
 		_ = name
 		swagger.addServletFromPackage(pkg)
 	}
 	swaggerJson, _ := swagger.swag.MarshalJSON()
-	// fmt.Printf("swagger:%s\n", string(swaggerJson))
-	// return ""
+	if cfg.Token == "" {
+		//如果不上传，则打印到控制台
+		fmt.Printf("swagger:%s\n", string(swaggerJson))
+		return ""
+	}
 	cmdMap := map[string]interface{}{
 		"input": string(swaggerJson),
 		"options": map[string]interface{}{

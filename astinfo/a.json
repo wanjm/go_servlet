@@ -1,0 +1,154 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/message-center/nc/healthCheck": {
+            "get": {
+                "security": [
+                    {
+                        "\"Access-Token\"": [
+                            "string"
+                        ]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ResponseResult"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/message-center/test/msgctr": {
+            "get": {
+                "security": [
+                    {
+                        "\"Access-Token\"": [
+                            "string"
+                        ]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ResponseResult"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/message-center/tk/getAllCounter": {
+            "post": {
+                "security": [
+                    {
+                        "\"Access-Token\"": [
+                            "string"
+                        ]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "obj": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/SingleCounter"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/message-center/tk/msgctr": {
+            "get": {
+                "security": [
+                    {
+                        "\"Access-Token\"": [
+                            "string"
+                        ]
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/ResponseResult"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "ResponseResult": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "msg": {
+                    "type": "string"
+                },
+                "obj": {}
+            }
+        },
+        "SingleCounter": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "计数器值",
+                    "type": "integer"
+                },
+                "counterId": {
+                    "description": "计数器id",
+                    "type": "string"
+                },
+                "groupId": {
+                    "description": "班级id",
+                    "type": "integer"
+                },
+                "messageType": {
+                    "description": "消息类型",
+                    "type": "integer"
+                },
+                "userId": {
+                    "description": "用户id",
+                    "type": "integer"
+                },
+                "userType": {
+                    "description": "用户类型",
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
