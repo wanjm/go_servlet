@@ -15,3 +15,6 @@ type ArrayType struct {
 
 type MapType struct {
 }
+
+type EmptyType struct {
+}

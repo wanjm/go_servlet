@@ -88,8 +88,6 @@ func (project *Project) getStruct(name string, v1, v2 any) SchemaType {
 	return nil
 }
 
-// 获取原始类型对应到swagger的类型
-
 func (project *Project) addServer(name string) {
 	if len(name) == 0 {
 		fmt.Printf("WARN: server name should not empty\n")

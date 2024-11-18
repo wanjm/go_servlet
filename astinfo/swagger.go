@@ -58,6 +58,9 @@ func (s *Struct) InitSchema(schema *spec.Schema, swagger *Swagger) {
 	schema.Ref = *s.ref
 }
 
+func (e *EmptyType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+}
+
 type Swagger struct {
 	swag    *spec.Swagger
 	project *Project
@@ -320,7 +323,8 @@ func (swagger *Swagger) initResponseResult() {
 				pkg:      rawpkg,
 			},
 			{
-				name: "obj",
+				class: &EmptyType{},
+				name:  "obj",
 			},
 		},
 	}
