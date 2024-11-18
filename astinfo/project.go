@@ -30,7 +30,7 @@ type Project struct {
 	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	swag             *spec.Swagger
-	rawTypes         []RawTypeInterface
+	rawTypes         map[string]SchemaType
 }
 
 func (project *Project) Parse() {
@@ -70,31 +70,25 @@ func CreateProject(path string, cfg *Config) *Project {
 }
 
 func (project *Project) initRawPackage() {
+	project.rawTypes = make(map[string]SchemaType)
 	project.rawPkg = project.getPackage("", true) //创建原始类型
 	for _, typeName := range []string{"string", "bool", "byte", "rune", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64", "map"} {
-		project.rawTypes = append(project.rawTypes, &RawType{Name: typeName})
+		project.rawTypes[typeName] = &RawType{Name: typeName}
 	}
-	project.rawTypes = append(project.rawTypes, &ArrayType{})
-	project.rawTypes = append(project.rawTypes, &MapType{})
+	project.rawTypes["array"] = &ArrayType{}
+	project.rawTypes["map"] = &MapType{}
+}
+
+func (project *Project) getStruct(name string, v1, v2 any) SchemaType {
+	if name == "array" {
+	}
+	if rawType, ok := project.rawTypes[name]; ok {
+		return rawType
+	}
+	return nil
 }
 
 // 获取原始类型对应到swagger的类型
-func getRawTypeString(typeName string) string {
-	switch typeName {
-	case "string":
-		return "string"
-	case "array":
-		return "array"
-	case "map":
-		return "object"
-	case "bool":
-		return "bool"
-	case "float32", "float64":
-		return "number"
-	default:
-		return "integer"
-	}
-}
 
 func (project *Project) addServer(name string) {
 	if len(name) == 0 {

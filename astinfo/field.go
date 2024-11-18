@@ -47,16 +47,21 @@ func (field *Field) parseComment(fieldType *ast.CommentGroup, goFile *GoFile) {
 func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
-	if _, ok := fieldType.(*ast.ArrayType); ok {
-		rawPkg := goFile.pkg.Project.rawPkg
-		// 此处把类型记下来，便于后续使用，如生成swagger等；
-		class := rawPkg.getStruct("array", false)
-		if class != nil {
-			field.typeName = "array"
-			field.pkg = rawPkg
-			field.class = class
-			return
+	if arrayType, ok := fieldType.(*ast.ArrayType); ok {
+		field.typeName = "array"
+		field.pkg = goFile.pkg.Project.rawPkg
+
+		fakeFiled := Field{}
+		fakeFiled.parseType(arrayType.Elt, goFile)
+		array := ArrayType{}
+		if fakeFiled.class != nil {
+			array.OriginType = fakeFiled.class.(SchemaType)
+		} else {
+			array.pkg = fakeFiled.pkg
+			array.typeName = fakeFiled.typeName
 		}
+		field.class = &array
+		return
 	}
 	if innerType, ok := fieldType.(*ast.StarExpr); ok {
 		field.isPointer = true
@@ -68,15 +73,16 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 		structName = innerType.Sel.Name
 		pkgPath = goFile.getImportPath(modeName, field.ownerInfo)
 	}
-	// 原生类型，或者本package定义的结构体
+	// 原生类型，或者本package定义的结构体,array在前面已经处理了，所以此处肯定没有数组；
+	// 下面的class也可以直接使用
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
 		if structName[0] <= 'z' && structName[0] >= 'a' {
-			rawPkg := goFile.pkg.Project.rawPkg
-			class := rawPkg.getStruct(structName, false)
+			project := goFile.pkg.Project
+			class := project.getStruct(structName, nil, nil)
 			if class != nil {
 				field.typeName = structName
-				field.pkg = rawPkg
+				field.pkg = project.rawPkg
 				field.class = class
 				return
 			}
