@@ -163,13 +163,12 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 		}
 		field.parseType(param.Type, method.goFile)
 		//此处可能多个参数 a,b string的格式暂时仅处理一个；
-		if len(param.Names) > 1 {
-			log.Fatalf("function %s has more than one parameter", method.Name)
+		for _, name := range param.Names {
+			nfield := field
+			nfield.name = name.Name
+			method.Params = append(method.Params, &nfield)
+			break
 		}
-		if len(param.Names) > 0 {
-			field.name = param.Names[0].Name
-		}
-		method.Params = append(method.Params, &field)
 	}
 	if paramType.Results != nil {
 		for _, result := range paramType.Results.List {
