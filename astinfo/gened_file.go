@@ -53,7 +53,11 @@ func (file *GenedFile) getImport(modePath, modeName string) (result *Import) {
 	if impt, ok := file.genCodeImport[modePath]; ok {
 		return impt
 	}
-	// pkg的modName是在解析package代码时生成的。然后对于第三方的pkg，由于不会解析packge，所以其modeName为空，此时用modePath的baseName来代替，不会产生问题；
+	// pkg的modName是在解析package代码时生成的。然后对于第三方的pkg，由于不会解析packge，所以其modeName为空，
+	// 此时用modePath的baseName来代替，会产生问题，并不是每个package的modeName都是baseName的。如"github.com/redis/go-redis/v9"的modeName是redis
+	// 同时在生成代码时，会将baseModePath和modeName相同的，省掉modeName不写；但是go默认modeName是定义package时的packge字段描述的。
+	// 此处使用等价规则，会产生问题；而由于我们不扫描第三方package，所以不知道其正确的modeName
+	// 临时解决方案是，产生代码时，import全部写modeName，不省略；
 	if len(modeName) == 0 {
 		modeName = filepath.Base(modePath)
 	}
@@ -81,9 +85,10 @@ func (file *GenedFile) genImport() string {
 	sb.WriteString("import (\n")
 	for _, v := range file.genCodeImport {
 		baseName := filepath.Base(v.Path)
-		if baseName != v.Name {
-			sb.WriteString(v.Name)
-		}
+		// if baseName != v.Name {
+		sb.WriteString(v.Name)
+		// }
+		_ = baseName
 		sb.WriteString(" \"")
 		sb.WriteString(strings.ReplaceAll(v.Path, "\\", "/"))
 		sb.WriteString("\"\n")
