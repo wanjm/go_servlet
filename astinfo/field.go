@@ -20,6 +20,7 @@ type Field struct {
 	jsonName  string
 	comment   string
 	ownerInfo string //记录用于打印日志的信息
+	creators  map[*Struct]*Function
 }
 
 func (field *Field) parse(astField *ast.Field, goFile *GoFile) {
@@ -101,8 +102,28 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	field.typeName = structName
 	// field.class = pkg.getStruct(structName, true)
 }
-func (field *Field) generateCode() string {
-	return "\n"
+func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string {
+	variable := Variable{
+		isPointer: field.isPointer,
+		class:     field.findStruct(true),
+		name:      "request",
+	}
+	// 从receiver中查找是否有Creator方法
+	creator := field.creators[variable.class]
+	if creator != nil {
+		variable.creator = creator
+		variable.isPointer = creator.Results[0].isPointer
+	} else {
+		variable.isPointer = true
+	}
+	res := variable.generateCode(receiverPrefix, file)
+	if field.isPointer == variable.isPointer {
+		return res
+	} else if variable.isPointer {
+		return "*" + res
+	} else {
+		return "getAddr(" + res + ")"
+	}
 }
 
 // 再给vairable赋值时，强行force为true；

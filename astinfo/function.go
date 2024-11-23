@@ -285,24 +285,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	if len(method.Params) >= 2 {
 		var variableCode string
 		requestParam := method.Params[1]
-		variable := Variable{
-			isPointer: requestParam.isPointer,
-			class:     requestParam.findStruct(true),
-			name:      "request",
-		}
-		// 从receiver中查找是否有Creator方法
-		creator := method.funcManager.getCreator(variable.class)
-		if creator != nil {
-			variable.creator = creator
-			variable.isPointer = creator.Results[0].isPointer
-		} else {
-			variable.isPointer = true
-		}
-		if variable.isPointer {
-			variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
-		} else {
-			variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
-		}
+		variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 		sb.WriteString(variableCode)
 
 		sb.WriteString(`
@@ -352,5 +335,9 @@ func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) str
 		impt := file.getImport(pkg.modPath, pkg.modName)
 		prefix = impt.Name + "."
 	}
-	return fmt.Sprintf(prefix + creator.Name + "()")
+	var paramstr = make([]string, len(creator.Params))
+	for i, param := range creator.Params {
+		paramstr[i] = param.generateCode(prefix, file)
+	}
+	return fmt.Sprintf(prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")")
 }

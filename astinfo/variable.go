@@ -30,7 +30,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 			return name
 		}
 		// }
-		creator := variable.class.getCreator(variable.class)
+		creator = variable.class.getCreator(variable.class)
 		if creator != nil {
 			variable.creator = creator
 			variable.isPointer = creator.Results[0].isPointer
