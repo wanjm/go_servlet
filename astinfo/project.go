@@ -398,7 +398,9 @@ type Config struct {
 	Cors bool
 	Addr string
 }
-
+func getAddr[T any](a T)*T{
+	return &a
+}
 type server struct {
 	filters      []*UrlFilter
 	routerInitors []func(*gin.Engine)
