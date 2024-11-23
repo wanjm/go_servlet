@@ -37,15 +37,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 		}
 	}
 	if creator != nil {
-		var prefix string
-		if len(receiverPrefix) > 0 {
-			prefix = receiverPrefix
-		} else {
-			pkg := creator.pkg
-			impt := file.getImport(pkg.modPath, pkg.modName)
-			prefix = impt.Name + "."
-		}
-		return fmt.Sprintf(prefix + creator.Name + "()")
+		return creator.genCallCode(receiverPrefix, file)
 	}
 
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)

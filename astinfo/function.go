@@ -188,7 +188,11 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 
 func (method *Function) parseCreator() *Struct {
 	funcDecl := method.function
-	returnTypeList := funcDecl.Type.Results.List
+	results := funcDecl.Type.Results
+	if results == nil {
+		return nil
+	}
+	returnTypeList := results.List
 	if len(returnTypeList) != 1 {
 		log.Fatalf("creator %s should have one return value", method.Name)
 	}
@@ -337,4 +341,16 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	sb.WriteString("})\n")
 
 	return sb.String()
+}
+
+func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) string {
+	var prefix string
+	if len(receiverPrefix) > 0 {
+		prefix = receiverPrefix
+	} else {
+		pkg := creator.pkg
+		impt := file.getImport(pkg.modPath, pkg.modName)
+		prefix = impt.Name + "."
+	}
+	return fmt.Sprintf(prefix + creator.Name + "()")
 }

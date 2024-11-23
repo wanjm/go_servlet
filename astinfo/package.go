@@ -114,28 +114,29 @@ func (pkg *Package) generateInitorCode() {
 	assign.WriteString("func " + initorName + "(){\n")
 	pkg.Project.addInitVariable(initorName)
 	for _, initor := range pkg.initiators {
-		result := initor.Results[0]
+		if len(initor.Results) == 1 {
+			result := initor.Results[0]
+			name := result.name
+			if len(name) == 0 {
+				name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
+				name = strings.ReplaceAll(name, "/", "_")
+			}
 
-		name := result.name
-		if len(name) == 0 {
-			name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
-			name = strings.ReplaceAll(name, "/", "_")
+			variable := Variable{
+				// creator:   initor,
+				class:     result.findStruct(true),
+				name:      name,
+				isPointer: result.isPointer,
+			}
+			//先添加到全局定义中去，可能给variable补名字
+			pkg.Project.addInitiatorVaiable(&variable)
+			define.WriteString(variable.genDefinition(pkg.file))
+			define.WriteString("\n")
+
+			assign.WriteString(name)
+			assign.WriteString("=")
 		}
-
-		variable := Variable{
-			creator:   initor,
-			class:     result.findStruct(true),
-			name:      name,
-			isPointer: result.isPointer,
-		}
-		//先添加到全局定义中去，可能给variable补名字
-		pkg.Project.addInitiatorVaiable(&variable)
-		define.WriteString(variable.genDefinition(pkg.file))
-		define.WriteString("\n")
-
-		assign.WriteString(name)
-		assign.WriteString("=")
-		assign.WriteString(variable.generateCode("", pkg.file))
+		assign.WriteString(initor.genCallCode("", pkg.file))
 		assign.WriteString("\n")
 	}
 	assign.WriteString("}\n")
