@@ -27,7 +27,7 @@ type Project struct {
 	// creators map[*Struct]*Initiator
 	initFuncs        []string                //initAll 调用的init函数；
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
-	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
+	initVariableFuns []string                //initVriable 调用的各个package生成的init函数；处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	swag             *spec.Swagger
 	rawTypes         map[string]SchemaType
@@ -344,7 +344,7 @@ func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult
 	funcManager.addInitFuncs("initRpcClient()")
 }
 
-func (project *Project) addInitVariable(variableName string) {
+func (project *Project) addInitVariableFunc(variableName string) {
 	project.initVariableFuns = append(project.initVariableFuns, variableName+"()")
 }
 

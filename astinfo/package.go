@@ -102,6 +102,7 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 
 // 生成initiator的代码
 // 定义initorator的函数，在此被调用，并保存在全局变量中；
+// 初始化函数可以自带参数，这些参数是由其他initiator生成的，所以initiator之间是有依赖关系的，需要生成代码时，进行排序，保证生成顺序的正确性；
 func (pkg *Package) generateInitorCode() {
 	if len(pkg.initiators) == 0 {
 		return
@@ -112,8 +113,9 @@ func (pkg *Package) generateInitorCode() {
 	pkg.file.addBuilder(&assign)
 	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
 	assign.WriteString("func " + initorName + "(){\n")
-	pkg.Project.addInitVariable(initorName)
-	for _, initor := range pkg.initiators {
+	pkg.Project.addInitVariableFunc(initorName)
+	for _, node := range pkg.initiators {
+		initor := node.function
 		if len(initor.Results) == 1 {
 			result := initor.Results[0]
 			name := result.name
