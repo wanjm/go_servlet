@@ -384,6 +384,7 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 
 func (Project *Project) genBasicCode(file *GenedFile) {
 	file.getImport("github.com/gin-contrib/cors", "cors")
+	file.getImport("sync", "sync")
 	var content strings.Builder
 	content.WriteString(`
 	type Response struct {
@@ -397,6 +398,7 @@ type Config struct {
 	KeyFile string
 	Cors bool
 	Addr string
+	ServerName string
 }
 func getAddr[T any](a T)*T{
 	return &a
@@ -406,7 +408,16 @@ type server struct {
 	routerInitors []func(*gin.Engine)
 }
 var servers map[string]*server
-	func Run(config Config, serverName string){
+	func Run(config ...Config) *sync.WaitGroup{
+		prepare()
+		var wg sync.WaitGroup
+		for _, c := range config {
+			wg.Add(1)
+			go run(&wg, c)
+		}
+		return &wg
+	}
+	func run(wg *sync.WaitGroup, config Config){
 		var	router  *gin.Engine = gin.New()
 		router.ContextWithFallback = true
 		if(config.Cors){
@@ -416,16 +427,17 @@ var servers map[string]*server
 			router.Use(cors.New(config))
 		}
 			//如果不存在，则启动就失败，不需要检查
-			server := servers[serverName]
-	registerFilter(router, server.filters)
-	for _, routerInitor := range server.routerInitors {
-		routerInitor(router)
-	}
+		server := servers[config.ServerName]
+		registerFilter(router, server.filters)
+		for _, routerInitor := range server.routerInitors {
+			routerInitor(router)
+		}
 		if config.CertFile != "" {
 			router.RunTLS(config.Addr, config.CertFile, config.KeyFile)
 		} else {
 			router.Run(config.Addr)
 		}
+		wg.Done()
 	}
 	`)
 	file.addBuilder(&content)
@@ -434,7 +446,7 @@ func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
 	// file.getImport("sync/atomic", "atomic")
 	content.WriteString(`
-	func Prepare() {
+	func prepare() {
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
@@ -487,10 +499,12 @@ func (project *Project) genInitMain() {
 	content.WriteString("import (\"" + project.Mod + "/gen\")\n")
 	content.WriteString(`
 func main() {
-	gen.Run(gen.Config{
+	wg:=gen.Run(gen.Config{
 		Cors: true,
 		Addr: ":8080",
-	},"servlet")
+		ServerName: "servlet",
+	})
+	wg.Wait()
 }
 	`)
 	os.WriteFile("main.go", []byte(content.String()), 0660)
