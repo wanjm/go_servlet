@@ -326,6 +326,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	return sb.String()
 }
 
+// 生成调用本函数的代码
 func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) string {
 	var prefix string
 	if len(receiverPrefix) > 0 {
