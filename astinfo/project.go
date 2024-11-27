@@ -279,7 +279,14 @@ func (project *Project) GenerateCode() {
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
 }
 
-func (funcManager *Project) getVariable(class *Struct, varName string) string {
+func (funcManager *Project) getDependNode(class *Struct, varName string) *DependNode {
+	inits := funcManager.initiatorMap[class]
+	if inits == nil {
+		return nil
+	}
+	return inits.getVariable(varName)
+}
+func (funcManager *Project) getVariableName(class *Struct, varName string) string {
 	inits := funcManager.initiatorMap[class]
 	if inits == nil {
 		return ""
@@ -379,9 +386,10 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	var content strings.Builder
 	content.WriteString("func initVariable() {\n")
 	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
-		return Project.initVariableFuns[i].level > Project.initVariableFuns[j].level
+		return Project.initVariableFuns[i].level < Project.initVariableFuns[j].level
 	})
 	for _, fun := range Project.initVariableFuns {
+		// fmt.Printf("generate code for initVariable %s level=%d\n", fun.name, fun.level)
 		content.WriteString(fun.name + "()\n")
 	}
 	content.WriteString("}\n")

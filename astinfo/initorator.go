@@ -29,11 +29,9 @@ func (manager *InitiatorManager) genInitiator() {
 	// 生成所有的返回值变量
 	leftLength := len(manager.dependNodes)
 	lastlength := leftLength + 1
-	level := 1
 	for leftLength != lastlength {
 		lastlength = leftLength
-		manager.buildTree(level)
-		level++
+		manager.buildTree()
 		leftLength = len(manager.dependNodes)
 	}
 	if leftLength > 0 {
@@ -46,26 +44,29 @@ func (manager *InitiatorManager) genInitiator() {
 func (manager *InitiatorManager) checkReady(node *DependNode) bool {
 	param := node.function.Params
 	project := manager.project
+	level := 0
 	for _, p := range param {
 		p.class = p.findStruct(true)
-		if len(project.getVariable(p.class.(*Struct), p.name)) == 0 {
+		dep := project.getDependNode(p.class.(*Struct), p.name)
+		if dep == nil {
 			return false
 		}
+		if level < dep.level {
+			level = dep.level
+		}
 	}
+	node.level = level + 1
 	manager.genVariable(node)
 	return true
 }
 
 // 建立依赖关系树
 // 目前采用简单for循环，找到依赖关系后再生成variable的方法，完成依赖关系的建立
-func (manager *InitiatorManager) buildTree(level int) {
+func (manager *InitiatorManager) buildTree() {
 	// root := &manager.root
 	c := 0
 	for _, node := range manager.dependNodes {
-		if manager.checkReady(node) {
-			// root.children = append(root.children, node)
-			node.level = level
-		} else {
+		if !manager.checkReady(node) {
 			manager.dependNodes[c] = node
 			c++
 		}

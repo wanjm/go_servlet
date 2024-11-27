@@ -26,7 +26,7 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 		//如果没有自带构造器，则先从全局变量中寻找, 全部变量目前支持指针和interface，但是此处没有做检查
 		// if variable.isPointer {
 		// 生成注入代码时，应该走这里；
-		name := variable.class.Package.Project.getVariable(variable.class, variable.name)
+		name := variable.class.Package.Project.getVariableName(variable.class, variable.name)
 		if len(name) > 0 {
 			return name
 		}

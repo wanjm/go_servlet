@@ -238,8 +238,9 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 		sb.WriteString(name + ":=" + variable.generateCode(receiverPrefix, file) + "\n")
 		if !param.isPointer {
 			interfaceArgs += "&" + name + ","
+		} else {
+			interfaceArgs += name + ","
 		}
-		interfaceArgs += name + ","
 		realParams += "," + name
 	}
 
