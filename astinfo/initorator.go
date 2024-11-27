@@ -48,9 +48,6 @@ func (manager *InitiatorManager) checkReady(node *DependNode) bool {
 	project := manager.project
 	for _, p := range param {
 		p.class = p.findStruct(true)
-		if p.class == nil {
-			fmt.Println("class is nil")
-		}
 		if len(project.getVariable(p.class.(*Struct), p.name)) == 0 {
 			return false
 		}
@@ -64,16 +61,13 @@ func (manager *InitiatorManager) checkReady(node *DependNode) bool {
 func (manager *InitiatorManager) buildTree(level int) {
 	// root := &manager.root
 	c := 0
-	for i, l := 0, len(manager.dependNodes); i < l; i++ {
-		node := manager.dependNodes[i]
+	for _, node := range manager.dependNodes {
 		if manager.checkReady(node) {
 			// root.children = append(root.children, node)
-			manager.dependNodes[i].level = level
+			node.level = level
 		} else {
-			if i != c {
-				manager.dependNodes[c] = node
-				c++
-			}
+			manager.dependNodes[c] = node
+			c++
 		}
 	}
 	manager.dependNodes = manager.dependNodes[:c]
