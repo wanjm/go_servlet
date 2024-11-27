@@ -11,6 +11,7 @@ type DependNode struct {
 	returnVariable *Variable
 }
 type InitiatorManager struct {
+	root         DependNode
 	dependNodes  []*DependNode
 	initiatorMap map[*Struct]*Initiators //便于注入时根据类型存照
 	project      *Project
@@ -28,7 +29,29 @@ func (manager *InitiatorManager) genInitiator() {
 	}
 }
 
-func (manager *InitiatorManager) addInitiatorVaiable(initiator *Variable) {
+// 建立依赖关系树
+func (manager *InitiatorManager) buildTree() {
+	if len(manager.dependNodes) == 0 {
+		return
+	}
+	root := &manager.root
+	c := 0
+	for i, l := 0, len(manager.dependNodes); i < l; i++ {
+		node := manager.dependNodes[i]
+		if len(node.function.Params) == 0 {
+			root.children = append(root.children, node)
+			node.level = 1
+		}
+		if i != c {
+			manager.dependNodes[c] = node
+			c++
+		}
+	}
+	manager.dependNodes = manager.dependNodes[:c]
+}
+
+func (manager *InitiatorManager) addInitiatorVaiable(node *DependNode) {
+	initiator := node.returnVariable
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
 	var inits *Initiators
@@ -37,7 +60,7 @@ func (manager *InitiatorManager) addInitiatorVaiable(initiator *Variable) {
 		inits = createInitiators()
 		manager.initiatorMap[initiator.class] = inits
 	}
-	inits.addInitiator(initiator)
+	inits.addInitiator(node)
 }
 
 func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
@@ -55,7 +78,7 @@ func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
 		isPointer: result.isPointer,
 	}
 	dependNode.returnVariable = &variable
-	manager.addInitiatorVaiable(&variable)
+	manager.addInitiatorVaiable(dependNode)
 }
 
 func (pkg *Package) genInitiator(manager *InitiatorManager) {

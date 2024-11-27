@@ -278,7 +278,7 @@ func (funcManager *Project) getVariable(class *Struct, varName string) string {
 	if inits == nil {
 		return ""
 	}
-	return inits.getVariableName(varName)
+	return inits.getVariable(varName).returnVariable.name
 }
 
 func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
