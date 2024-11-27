@@ -20,7 +20,10 @@ type InitiatorManager struct {
 	project *Project
 }
 
-// 建立依赖关系树，并生成代码
+// 1. 收集所有的initiator函数到一个数组中；
+// 2. 根据依赖关系生成变量名，只有一个函数的所有依赖值都存在时，才生成变量名；
+// 3. 生成变量名时，同时记录依赖层级；
+// 4. 当有变量无法程程时，则表示依赖条件不满足，a: 依赖的变量不存在， b：存在相互依赖，无法生成变量名；
 func (manager *InitiatorManager) genInitiator() {
 	// 获取所有的初始化函数
 	for _, pkg := range manager.project.Package {
