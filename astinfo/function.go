@@ -126,13 +126,13 @@ type Function struct {
 	// deprecated bool
 }
 
-func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
+func createFunction(f *ast.FuncDecl, goFile *GoFile, funcManager *FunctionManager) *Function {
 	return &Function{
 		function:    f,
 		Name:        f.Name.Name,
 		pkg:         goFile.pkg,
 		goFile:      goFile,
-		funcManager: &goFile.pkg.FunctionManager,
+		funcManager: funcManager,
 	}
 }
 

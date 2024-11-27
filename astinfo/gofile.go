@@ -136,6 +136,6 @@ func (goFile *GoFile) parseMethod(method *ast.FuncDecl) {
 	method1.Parse()
 }
 func (goFile *GoFile) parseFunction(funcDecl *ast.FuncDecl) {
-	function1 := createFunction(funcDecl, goFile)
+	function1 := createFunction(funcDecl, goFile, &goFile.pkg.FunctionManager)
 	function1.Parse()
 }
