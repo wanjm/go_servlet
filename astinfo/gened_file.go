@@ -3,6 +3,7 @@ package astinfo
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -83,16 +84,24 @@ func (file *GenedFile) genImport() string {
 	}
 	var sb strings.Builder
 	sb.WriteString("import (\n")
+	imports := make([]string, len(file.genCodeImport))
+	var i = 0
 	for _, v := range file.genCodeImport {
-		baseName := filepath.Base(v.Path)
-		// if baseName != v.Name {
-		sb.WriteString(v.Name)
-		// }
-		_ = baseName
-		sb.WriteString(" \"")
-		sb.WriteString(strings.ReplaceAll(v.Path, "\\", "/"))
-		sb.WriteString("\"\n")
+		// baseName := filepath.Base(v.Path)
+		imports[i] = v.Name + " \"" + strings.ReplaceAll(v.Path, "\\", "/") + "\""
+		/*
+			// if baseName != v.Name {
+			sb.WriteString(v.Name)
+			// }
+			_ = baseName
+			sb.WriteString(" \"")
+			sb.WriteString(strings.ReplaceAll(v.Path, "\\", "/"))
+			sb.WriteString("\"\n")
+		*/
+		i++
 	}
-	sb.WriteString(")\n")
+	sort.StringSlice(imports).Sort()
+	sb.WriteString(strings.Join(imports, "\n"))
+	sb.WriteString("\n)\n")
 	return sb.String()
 }
