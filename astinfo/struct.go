@@ -69,12 +69,16 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 	}
 }
 
-func (class *Struct) parseComment(doc *ast.CommentGroup) string {
-	if doc == nil {
-		return ""
+func (class *Struct) parseComment(doc *ast.CommentGroup) {
+	parseComment(doc, &class.comment)
+	for _, servlet := range class.servlets {
+		if servlet.comment.serverName == "" {
+			servlet.comment.serverName = class.comment.groupName
+		}
 	}
-
-	return ""
+	if class.comment.serverType != NOUSAGE {
+		class.Package.Project.addServer(class.comment.groupName)
+	}
 }
 
 // 注意跟变量注入区分开来
