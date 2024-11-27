@@ -246,8 +246,16 @@ func (project *Project) GenerateCode() {
 		name = project.getRelativeModePath(pkg.modPath)
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
 		pkg.file = createGenedFile(name)
-		pkg.generateInitorCode()
+
 	}
+	initManager := InitiatorManager{
+		initiatorMap: make(map[*Struct]*Initiators),
+		project:      project,
+	}
+
+	//生成变量初始化代码
+	initManager.genInitiator()
+	project.initiatorMap = initManager.initiatorMap
 
 	for name, pkg := range project.Package {
 		_ = name
@@ -263,19 +271,6 @@ func (project *Project) GenerateCode() {
 	project.genPrepare(file)
 	file.save()
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
-}
-
-func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {
-	// 后续添加排序功能
-	// funcManager.initiator = append(funcManager.initiator, initiator)
-	var inits *Initiators
-	var ok bool
-	if inits, ok = funcManager.initiatorMap[initiator.class]; !ok {
-		inits = createInitiators()
-		funcManager.initiatorMap[initiator.class] = inits
-	}
-	inits.addInitiator(initiator)
-
 }
 
 func (funcManager *Project) getVariable(class *Struct, varName string) string {

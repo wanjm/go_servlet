@@ -49,6 +49,14 @@ func (inits *Initiators) addInitiator(initiator *Variable) {
 	}
 	inits.list[strings.ToLower(name)] = initiator
 }
+func (init *Initiators) getVariable(name string) *Variable {
+	name = strings.ToLower(name)
+	if variable, ok := init.list[name]; ok {
+		return variable
+	}
+	//此处的defa
+	return init.defaultValue
+}
 func (init *Initiators) getVariableName(name string) string {
 	name = strings.ToLower(name)
 	if variable, ok := init.list[name]; ok {

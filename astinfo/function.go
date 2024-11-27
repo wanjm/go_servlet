@@ -7,14 +7,6 @@ import (
 	"strings"
 )
 
-// 初始化函数依赖关系节点
-type DependNode struct {
-	level    int
-	children []*DependNode //依赖于自己的节点
-	parent   []*DependNode //自己依赖的节点
-	function *Function
-}
-
 type FunctionManag interface {
 	addServlet(*Function)
 	addCreator(childClass *Struct, method *Function)
