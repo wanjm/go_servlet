@@ -1,6 +1,9 @@
 package astinfo
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // 初始化函数依赖关系节点
 type DependNode struct {
@@ -11,10 +14,10 @@ type DependNode struct {
 	returnVariable *Variable
 }
 type InitiatorManager struct {
-	root         DependNode
-	dependNodes  []*DependNode
-	initiatorMap map[*Struct]*Initiators //便于注入时根据类型存照
-	project      *Project
+	root        DependNode
+	dependNodes []*DependNode
+	// initiatorMap map[*Struct]*Initiators //便于注入时根据类型存照
+	project *Project
 }
 
 // 建立依赖关系树，并生成代码
@@ -24,33 +27,59 @@ func (manager *InitiatorManager) genInitiator() {
 		pkg.genInitiator(manager)
 	}
 	// 生成所有的返回值变量
-	for _, dependNode := range manager.dependNodes {
-		manager.genVariable(dependNode)
+	leftLength := len(manager.dependNodes)
+	lastlength := leftLength + 1
+	level := 1
+	for leftLength != lastlength {
+		lastlength = leftLength
+		manager.buildTree(level)
+		level++
+		leftLength = len(manager.dependNodes)
 	}
+	if leftLength > 0 {
+		for _, node := range manager.dependNodes {
+			fmt.Printf("can't find paramter for initiator %s\n", node.function.Name)
+		}
+		panic("can't find paramter for initiator")
+	}
+}
+func (manager *InitiatorManager) checkReady(node *DependNode) bool {
+	param := node.function.Params
+	project := manager.project
+	for _, p := range param {
+		p.class = p.findStruct(true)
+		if p.class == nil {
+			fmt.Println("class is nil")
+		}
+		if len(project.getVariable(p.class.(*Struct), p.name)) == 0 {
+			return false
+		}
+	}
+	manager.genVariable(node)
+	return true
 }
 
 // 建立依赖关系树
-func (manager *InitiatorManager) buildTree() {
-	if len(manager.dependNodes) == 0 {
-		return
-	}
-	root := &manager.root
+// 目前采用简单for循环，找到依赖关系后再生成variable的方法，完成依赖关系的建立
+func (manager *InitiatorManager) buildTree(level int) {
+	// root := &manager.root
 	c := 0
 	for i, l := 0, len(manager.dependNodes); i < l; i++ {
 		node := manager.dependNodes[i]
-		if len(node.function.Params) == 0 {
-			root.children = append(root.children, node)
-			node.level = 1
-		}
-		if i != c {
-			manager.dependNodes[c] = node
-			c++
+		if manager.checkReady(node) {
+			// root.children = append(root.children, node)
+			manager.dependNodes[i].level = level
+		} else {
+			if i != c {
+				manager.dependNodes[c] = node
+				c++
+			}
 		}
 	}
 	manager.dependNodes = manager.dependNodes[:c]
 }
 
-func (manager *InitiatorManager) addInitiatorVaiable(node *DependNode) {
+func (manager *Project) addInitiatorVaiable(node *DependNode) {
 	initiator := node.returnVariable
 	// 后续添加排序功能
 	// funcManager.initiator = append(funcManager.initiator, initiator)
@@ -64,6 +93,9 @@ func (manager *InitiatorManager) addInitiatorVaiable(node *DependNode) {
 }
 
 func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
+	if len(dependNode.function.Results) == 0 {
+		return
+	}
 	result := dependNode.function.Results[0]
 	//  := initor.Results[0]
 	name := result.name
@@ -78,7 +110,7 @@ func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
 		isPointer: result.isPointer,
 	}
 	dependNode.returnVariable = &variable
-	manager.addInitiatorVaiable(dependNode)
+	manager.project.addInitiatorVaiable(dependNode)
 }
 
 func (pkg *Package) genInitiator(manager *InitiatorManager) {

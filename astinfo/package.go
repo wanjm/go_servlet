@@ -113,8 +113,11 @@ func (pkg *Package) generateInitorCode() {
 	pkg.file.addBuilder(&assign)
 	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
 	assign.WriteString("func " + initorName + "(){\n")
-	pkg.Project.addInitVariableFunc(initorName)
+	var level = 0
 	for _, node := range pkg.initiators {
+		if node.level > level {
+			level = node.level
+		}
 		initor := node.function
 		variable := node.returnVariable
 		if variable != nil {
@@ -127,6 +130,7 @@ func (pkg *Package) generateInitorCode() {
 		assign.WriteString("\n")
 	}
 	assign.WriteString("}\n")
+	pkg.Project.addInitVariableFunc(initorName, level)
 }
 
 // 生成rpc客户端的代码

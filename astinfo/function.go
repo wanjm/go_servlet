@@ -137,7 +137,7 @@ func (method *Function) Parse() bool {
 	method.parseParameter(method.function.Type)
 	switch method.comment.funcType {
 	case CREATOR:
-		//当将来有Creator方法返回位interface是，此处的findStruct(true)需要修改
+		//当将来有Creator方法返回为interface是，此处的findStruct(true)需要修改
 		method.parseCreator()
 		returnStruct := method.Results[0].findStruct(true)
 		if returnStruct != nil {

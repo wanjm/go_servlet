@@ -128,6 +128,7 @@ func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string 
 
 // 再给vairable赋值时，强行force为true；
 // 为什么有些是结构体，不过不强行却找不到：如外部结构体，由于本代码不会扫描到外部结构体，所以找不到；
+// 参考：parseType中的注释
 func (field *Field) findStruct(force bool) *Struct {
 	// 此处如果代码错误，会出现class为Interface，但是强转为Struct的情况，让程序报错
 	if field.class == nil {

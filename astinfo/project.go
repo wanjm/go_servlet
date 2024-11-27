@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/go-openapi/spec"
@@ -17,6 +18,10 @@ type server struct {
 	urlFilters    map[string]*Function //记录url过滤器函数
 	initFuncs     []string             //initAll 调用的init函数；
 }
+type initFunction struct {
+	name  string
+	level int
+}
 type Project struct {
 	cfg     *Config
 	Path    string              // 项目所在的目录
@@ -27,7 +32,7 @@ type Project struct {
 	// creators map[*Struct]*Initiator
 	initFuncs        []string                //initAll 调用的init函数；
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
-	initVariableFuns []string                //initVriable 调用的各个package生成的init函数；处理initiator函数生成；
+	initVariableFuns []*initFunction         //initVriable 调用的各个package生成的init函数；处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
 	swag             *spec.Swagger
 	rawTypes         map[string]SchemaType
@@ -249,14 +254,15 @@ func (project *Project) GenerateCode() {
 
 	}
 	initManager := InitiatorManager{
-		initiatorMap: make(map[*Struct]*Initiators),
-		project:      project,
+		// initiatorMap: make(map[*Struct]*Initiators),
+		project: project,
 	}
 
 	//生成变量初始化代码
 	initManager.genInitiator()
-	project.initiatorMap = initManager.initiatorMap
-
+	for _, pkg := range project.Package {
+		pkg.generateInitorCode()
+	}
 	for name, pkg := range project.Package {
 		_ = name
 		// fmt.Printf("deal package %s\n", name)
@@ -339,8 +345,11 @@ func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult
 	funcManager.addInitFuncs("initRpcClient()")
 }
 
-func (project *Project) addInitVariableFunc(variableName string) {
-	project.initVariableFuns = append(project.initVariableFuns, variableName+"()")
+func (project *Project) addInitVariableFunc(variableName string, level int) {
+	project.initVariableFuns = append(project.initVariableFuns, &initFunction{
+		name:  variableName,
+		level: level,
+	})
 }
 
 func (project *Project) addInitRoute(routerName string, serverName string) {
@@ -369,8 +378,11 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	}
 	var content strings.Builder
 	content.WriteString("func initVariable() {\n")
+	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
+		return Project.initVariableFuns[i].level > Project.initVariableFuns[j].level
+	})
 	for _, fun := range Project.initVariableFuns {
-		content.WriteString(fun + "\n")
+		content.WriteString(fun.name + "()\n")
 	}
 	content.WriteString("}\n")
 	file.addBuilder(&content)
