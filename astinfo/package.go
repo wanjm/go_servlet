@@ -131,7 +131,7 @@ func (pkg *Package) generateInitorCode() {
 				isPointer: result.isPointer,
 			}
 			//先添加到全局定义中去，可能给variable补名字
-			pkg.Project.addInitiatorVaiable(&variable)
+			// pkg.Project.addInitiatorVaiable(&variable)
 			define.WriteString(variable.genDefinition(pkg.file))
 			define.WriteString("\n")
 

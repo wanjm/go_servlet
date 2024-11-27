@@ -59,21 +59,11 @@ func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
 }
 
 func (pkg *Package) genInitiator(manager *InitiatorManager) {
-	for _, function := range pkg.initiators {
-		dependNode := &DependNode{
-			function: function,
-		}
-		manager.dependNodes = append(manager.dependNodes, dependNode)
-	}
+	manager.dependNodes = append(manager.dependNodes, pkg.initiators...)
 	for _, class := range pkg.StructMap {
 		class.genInitiator(manager)
 	}
 }
 func (class *Struct) genInitiator(manager *InitiatorManager) {
-	for _, function := range class.initiators {
-		dependNode := &DependNode{
-			function: function,
-		}
-		manager.dependNodes = append(manager.dependNodes, dependNode)
-	}
+	manager.dependNodes = append(manager.dependNodes, class.initiators...)
 }
