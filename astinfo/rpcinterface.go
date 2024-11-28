@@ -91,11 +91,14 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	// 	json.Unmarshal(res.O, &obj)
 	// 	return &obj, nil
 	// }
-	sb.WriteString("func (receiver *" + rpcInterface.structName + ") " + method.Name + "(")
+	file.getImport("context", "context")
+	sb.WriteString("func (receiver *" + rpcInterface.structName + ") " + method.Name + "(ctx context.Context,")
 	// 定义入参
 	var args []string
 	var params []string
-	for _, param := range method.Params {
+	// 默认第一个是context
+	for i, l := 1, len(method.Params); i < l; i++ {
+		param := method.Params[i]
 		info := param.name + " "
 		if param.isPointer {
 			info += "*"
