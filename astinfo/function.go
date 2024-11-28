@@ -247,7 +247,7 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	sb.WriteString(fmt.Sprintf("var request=[]interface{}{%s}\n", interfaceArgs))
 	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(200, map[string]interface{}{
-			"o": []any{&Error{Code: 4, Message: "param error"}},
+			"o": []any{&Error{Code: 4, Message: err.Error()}},
 			"c": 0,
 		})
 		return

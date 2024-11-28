@@ -303,6 +303,7 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	file.getImport("encoding/json", "json")
 	file.getImport("fmt", "fmt")
 	file.getImport("net/http", "http")
+	file.getImport("context", "context")
 
 	var content strings.Builder
 	content.WriteString("func initRpcClient() {\n//初始化rpc客户端,由于Prefix，是Host可以通过变量配置，所以需要写到basic中，因为本程序默认可见basic,basic可见性由filter引入，否则需要增加代码复杂度，暂时不支持，后续通过扫描变量的方式添加\n")
@@ -330,15 +331,21 @@ type RpcClient struct {
 	Prefix string
 }
 
-func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult {
+func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []interface{}) RpcResult {
 	content, marError := json.Marshal(array)
 	if marError != nil {
 		fmt.Printf("%v\n", marError)
 		return RpcResult{C: 1, O: [2]interface{}{nil, json.RawMessage{}}}
 	}
-	resp, error := http.Post(client.Prefix+name, "", bytes.NewReader(content))
-	if error != nil {
-		fmt.Printf("%v\n", error)
+	req, err := http.NewRequest("POST", client.Prefix+name, bytes.NewReader(content))
+	var resp *http.Response
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("TraceId", ctx.Value("TRID").(string))
+		resp, err = http.DefaultClient.Do(req)
+	}
+	if err != nil {
+		fmt.Printf("%v\n", err)
 	}
 	var res = RpcResult{
 		O: [2]interface{}{&Error{}, &json.RawMessage{}},
