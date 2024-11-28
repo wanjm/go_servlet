@@ -341,7 +341,8 @@ func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []
 	var resp *http.Response
 	if err == nil {
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("TraceId", ctx.Value("TRID").(string))
+		//TID 这个跟common包中的TraceId一致，通过字符串建立关系，通过类暂时搞不定
+		req.Header.Set("TraceId", ctx.Value("TID").(string))
 		resp, err = http.DefaultClient.Do(req)
 	}
 	if err != nil {
