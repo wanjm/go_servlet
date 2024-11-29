@@ -58,8 +58,12 @@ func (project *Project) ParseMod() {
 }
 func (project *Project) Parse() {
 	project.ParseMod()
-	if project.cfg.Generation.TraceKey != "" {
-		project.cfg.Generation.TraceKeyMod = project.Mod + "/" + project.cfg.Generation.TraceKeyMod
+	if project.cfg.Generation.TraceKey == "" {
+		panic("TraceKey is empty")
+	}
+	traceKeyMod := project.cfg.Generation.TraceKeyMod
+	if !strings.Contains(traceKeyMod, ".") {
+		project.cfg.Generation.TraceKeyMod = project.Mod + "/" + traceKeyMod
 	}
 	project.parseDir(project.Path)
 }
@@ -470,10 +474,8 @@ var servers map[string]*server
 	}
 		const TraceId = "TraceId"
 	`)
-	if len(Project.cfg.Generation.TraceKey) > 0 {
-		oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "traceKey")
-		content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
-	}
+	oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "xx")
+	content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
 	file.addBuilder(&content)
 }
 func (Project *Project) genPrepare(file *GenedFile) {
