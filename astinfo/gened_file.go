@@ -3,9 +3,10 @@ package astinfo
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
+
+	"go/format"
 )
 
 // 每个有自动生成代码的package 会有一个GenedFile类；
@@ -34,15 +35,21 @@ func (file *GenedFile) save() {
 	if len(file.contents) == 0 {
 		return
 	}
+	content := strings.Builder{}
+	content.WriteString("package gen\n")
+	content.WriteString(file.genImport())
+	for _, content1 := range file.contents {
+		content.WriteString(content1.String())
+	}
+	src, err := format.Source([]byte(content.String()))
+	if err != nil {
+		panic(err)
+	}
 	osfile, err := os.Create(file.name + ".go")
 	if err != nil {
-
+		panic(err)
 	}
-	osfile.WriteString("package gen\n")
-	osfile.WriteString(file.genImport())
-	for _, content := range file.contents {
-		osfile.WriteString(content.String())
-	}
+	osfile.Write(src)
 }
 
 func (file *GenedFile) addBuilder(builder *strings.Builder) {
@@ -100,7 +107,6 @@ func (file *GenedFile) genImport() string {
 		*/
 		i++
 	}
-	sort.StringSlice(imports).Sort()
 	sb.WriteString(strings.Join(imports, "\n"))
 	sb.WriteString("\n)\n")
 	return sb.String()
