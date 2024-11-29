@@ -320,7 +320,11 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	for _, field := range funcManager.initRpcField {
 		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
 		cfg := field.pkg.getInterface(field.typeName, false).config
-		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s}}\n", impt.Name, field.name, field.typeName, cfg.Host))
+		host := cfg.Host
+		if !strings.HasPrefix(host, "\"") {
+			host = impt.Name + "." + host
+		}
+		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s}}\n", impt.Name, field.name, field.typeName, host))
 	}
 	content.WriteString("}\n")
 	content.WriteString(`
