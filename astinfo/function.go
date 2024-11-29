@@ -303,7 +303,18 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb strings.Builder
-	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url)
+	var server = method.pkg.Project.servers[method.comment.serverName]
+	methodUrl := strings.Trim(method.comment.Url, "\"")
+	for _, filter := range server.urlFilters {
+		filterUrl := strings.Trim(filter.comment.Url, "\"")
+		if len(filterUrl) > 0 && strings.Contains(methodUrl, filterUrl) {
+			sb.WriteString(",\n")
+			sb.WriteString(filter.genFilterCall(file))
+			break
+		}
+	}
+	sb.WriteString(", func(c *gin.Context) {\n")
 	var realParams string
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
@@ -366,4 +377,20 @@ func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) str
 		paramstr[i] = param.generateCode(prefix, file)
 	}
 	return fmt.Sprintf(prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")")
+}
+
+func (filter *Function) genFilterCall(file *GenedFile) string {
+	impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
+	return `func(c*gin.Context){
+		res:=` +
+		impt.Name + "." + filter.Name +
+		`(c,&c.Request)
+		if(res.Code!=0){
+			c.JSON(200, 
+			Response{
+				Code:int(res.Code),
+				Message: res.Message,
+			})
+		}
+	}`
 }

@@ -441,7 +441,7 @@ func getAddr[T any](a T)*T{
 	return &a
 }
 type server struct {
-	filters      []*UrlFilter
+	filters      gin.HandlersChain
 	routerInitors []func(*gin.Engine)
 }
 var servers map[string]*server
@@ -465,7 +465,9 @@ var servers map[string]*server
 		}
 			//如果不存在，则启动就失败，不需要检查
 		server := servers[config.ServerName]
-		registerFilter(router, server.filters)
+		if server.filters != nil {
+			router.Use(server.filters...)
+		}
 		for _, routerInitor := range server.routerInitors {
 			routerInitor(router)
 		}
@@ -492,22 +494,16 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString(fun + "\n")
 	}
 	content.WriteString("servers = make(map[string]*server)\n")
-	// servers[""] = &server{
-	// 	filters: []*UrlFilter{
-	// 		{path: "/nc/", function: filter.NcFilter},
-	// 	},
-	// 	routerInitors: []func(*gin.Engine){},
-	// }
-	var oneResult *Field
-
 	for _, server := range Project.servers {
 		fmt.Printf("generate code for server '%s'\n", server.name)
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
-		content.WriteString("filters: []*UrlFilter{\n")
+		content.WriteString("filters: gin.HandlersChain{\n")
 		for _, filter := range server.urlFilters {
-			impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-			oneResult = filter.Results[0]
-			content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.comment.Url, impt.Name, filter.Name))
+			filterUrl := strings.Trim(filter.comment.Url, "\"")
+			if len(filterUrl) == 0 {
+				content.WriteString(filter.genFilterCall(file))
+				content.WriteString(",\n")
+			}
 		}
 		content.WriteString("},\n")
 		content.WriteString("routerInitors: []func(*gin.Engine){\n")
@@ -518,12 +514,12 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString("},\n")
 		content.WriteString("}\n")
 	}
-	if oneResult != nil {
-		// 动态方式添加 basic.Error;
-		pkg := oneResult.pkg
-		file.getImport(pkg.modPath, pkg.modName)
-	}
-	Project.generateUrlFilter(file)
+	// if oneResult != nil {
+	// 	// 动态方式添加 basic.Error;
+	// 	pkg := oneResult.pkg
+	// 	file.getImport(pkg.modPath, pkg.modName)
+	// }
+	// Project.generateUrlFilter(file)
 	content.WriteString("}\n")
 	file.addBuilder(&content)
 }

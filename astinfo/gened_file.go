@@ -1,12 +1,11 @@
 package astinfo
 
 import (
+	"go/format"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"go/format"
 )
 
 // 每个有自动生成代码的package 会有一个GenedFile类；
@@ -41,7 +40,8 @@ func (file *GenedFile) save() {
 	for _, content1 := range file.contents {
 		content.WriteString(content1.String())
 	}
-	src, err := format.Source([]byte(content.String()))
+	src := []byte(content.String())
+	src, err := format.Source(src)
 	if err != nil {
 		panic(err)
 	}

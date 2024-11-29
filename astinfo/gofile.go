@@ -116,8 +116,10 @@ func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
 		interfaceType := typeSpec.Type.(*ast.InterfaceType)
 		itface := goFile.pkg.getInterface(typeSpec.Name.Name, true)
 		itface.parseComment(genDecl.Doc)
-		itface.Parse(interfaceType, goFile)
-		fmt.Printf("interface %s\n", typeSpec.Name.Name)
+		if itface.config != nil {
+			itface.Parse(interfaceType, goFile)
+			fmt.Printf("interface %s\n", typeSpec.Name.Name)
+		}
 	case *ast.StructType:
 		structType := typeSpec.Type.(*ast.StructType)
 		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)
