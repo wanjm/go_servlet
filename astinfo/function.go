@@ -286,7 +286,7 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
 		var code any
 		if err.Code != 0 {
-			code = &Error{Code: err.Code, Message: err.Message}
+			code = &Error{Code: int(err.Code), Message: err.Message}
 		}
 		c.JSON(200, map[string]interface{}{
 			%s
@@ -342,7 +342,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		}
 		c.JSON(code, Response{
 			%s
-			Code:    err.Code,
+			Code:   int(err.Code),
 			Message: err.Message,
 		})
 	`, objResult, receiverPrefix, method.Name, realParams, objString))
