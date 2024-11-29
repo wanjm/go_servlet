@@ -330,6 +330,8 @@ type RpcResult struct {
 type RpcClient struct {
 	Prefix string
 }
+const TraceId="TraceId"
+const TraceIdNameInContext="TID"
 
 func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []interface{}) RpcResult {
 	content, marError := json.Marshal(array)
@@ -342,7 +344,7 @@ func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []
 	if err == nil {
 		req.Header.Set("Content-Type", "application/json")
 		//TID 这个跟common包中的TraceId一致，通过字符串建立关系，通过类暂时搞不定
-		req.Header.Set("TraceId", ctx.Value("TID").(string))
+		req.Header.Set(TraceId, ctx.Value(TraceIdNameInContext).(string))
 		resp, err = http.DefaultClient.Do(req)
 	}
 	if err != nil {

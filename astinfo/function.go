@@ -223,6 +223,8 @@ func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string
 
 func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
+	file.getImport("context", "context")
+	file.getImport("github.com/rs/xid", "xid")
 	var sb strings.Builder
 	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
 	var interfaceArgs string
@@ -252,6 +254,12 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 		})
 		return
 	}
+	var Request= c.Request;
+	tid := Request.Header.Get(TraceId)
+	if len(tid) <=0 {
+		tid = xid.New().String()
+	}
+	c.Request = Request.WithContext(context.WithValue(Request.Context(), TraceIdNameInContext, tid))
 	`)
 	var objString string
 	var objResult string
