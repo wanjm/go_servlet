@@ -38,7 +38,7 @@ type Project struct {
 	rawTypes         map[string]SchemaType
 }
 
-func (project *Project) Parse() {
+func (project *Project) ParseMod() {
 	//读取go.mod
 	modFile, err := os.Open("go.mod")
 	if err != nil {
@@ -54,6 +54,12 @@ func (project *Project) Parse() {
 	} else {
 		log.Panicf("failed to read go.mod, please run 'go mod init' first\n")
 		return
+	}
+}
+func (project *Project) Parse() {
+	project.ParseMod()
+	if project.cfg.Generation.TraceKey != "" {
+		project.cfg.Generation.TraceKeyMod = project.Mod + "/" + project.cfg.Generation.TraceKeyMod
 	}
 	project.parseDir(project.Path)
 }
@@ -330,8 +336,6 @@ type RpcResult struct {
 type RpcClient struct {
 	Prefix string
 }
-const TraceId="TraceId"
-const TraceIdNameInContext="TID"
 
 func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []interface{}) RpcResult {
 	content, marError := json.Marshal(array)
@@ -464,7 +468,12 @@ var servers map[string]*server
 		}
 		wg.Done()
 	}
+		const TraceId = "TraceId"
 	`)
+	if len(Project.cfg.Generation.TraceKey) > 0 {
+		oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "traceKey")
+		content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
+	}
 	file.addBuilder(&content)
 }
 func (Project *Project) genPrepare(file *GenedFile) {
