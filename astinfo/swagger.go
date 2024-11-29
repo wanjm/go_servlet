@@ -284,6 +284,9 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 	*/
 	for _, field := range class.fields {
 		var name = field.jsonName
+		if name == "-" {
+			continue
+		}
 		if len(name) == 0 {
 			name = firstLower(field.name)
 		}
