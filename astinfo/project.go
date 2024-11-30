@@ -14,10 +14,20 @@ import (
 
 type server struct {
 	name          string
-	initRouteFuns []string             //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
-	urlFilters    map[string]*Function //记录url过滤器函数
-	initFuncs     []string             //initAll 调用的init函数；
+	initRouteFuns []string           //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	urlFilters    map[string]*Filter //记录url过滤器函数,key是url, url是原始文件中的url，可能包含引号
+	initFuncs     []string           //initAll 调用的init函数；
 }
+
+func (s *server) getFilterCode(file *GenedFile) {
+	if len(s.urlFilters) == 0 {
+		return
+	}
+	for _, filter := range s.urlFilters {
+		filter.genFilterCode(file)
+	}
+}
+
 type initFunction struct {
 	name  string
 	level int
@@ -118,13 +128,15 @@ func (project *Project) addUrlFilter(function *Function, serverName string) {
 	}
 	var s *server
 	if s = project.servers[serverName]; s == nil {
-		s = &server{name: serverName, urlFilters: make(map[string]*Function)}
+		s = &server{name: serverName, urlFilters: make(map[string]*Filter)}
 		project.servers[serverName] = s
 	}
 	if filter, ok := s.urlFilters[function.comment.Url]; ok {
-		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, filter.pkg.modPath)
+		function := filter.function
+		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, function.pkg.modPath)
 	} else {
-		s.urlFilters[function.comment.Url] = function
+		filter := newFilter(function.comment.Url, function)
+		s.urlFilters[function.comment.Url] = filter
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
@@ -273,6 +285,11 @@ func (project *Project) GenerateCode() {
 	for _, pkg := range project.Package {
 		pkg.generateInitorCode()
 	}
+	filterFile := createGenedFile("filter")
+	for _, server := range project.servers {
+		server.getFilterCode(filterFile)
+	}
+	filterFile.save()
 	for name, pkg := range project.Package {
 		_ = name
 		// fmt.Printf("deal package %s\n", name)
@@ -499,9 +516,9 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
 		content.WriteString("filters: gin.HandlersChain{\n")
 		for _, filter := range server.urlFilters {
-			filterUrl := strings.Trim(filter.comment.Url, "\"")
+			filterUrl := filter.url
 			if len(filterUrl) == 0 {
-				content.WriteString(filter.genFilterCall(file))
+				content.WriteString(filter.genName)
 				content.WriteString(",\n")
 			}
 		}

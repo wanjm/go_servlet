@@ -199,11 +199,12 @@ func addSecurity(function *Function, operation *spec.Operation) {
 	}
 	for _, s := range function.pkg.Project.servers {
 		if s.name == function.comment.serverName {
-			for url, filter := range s.urlFilters {
-				servletUrl := strings.Trim(filter.comment.Url, "\"")
-				filterUrl := strings.Trim(url, "\"")
-				if strings.Contains(servletUrl, filterUrl) {
-					for _, header := range filter.comment.security {
+			for _, filter := range s.urlFilters {
+				url := filter.url
+				filterFunction := filter.function
+				servletUrl := filterFunction.comment.Url
+				if strings.Contains(servletUrl, url) {
+					for _, header := range filterFunction.comment.security {
 						operation.Security = append(operation.Security, map[string][]string{
 							header: {"string"},
 						})

@@ -1,7 +1,6 @@
 package astinfo
 
 import (
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -111,7 +110,7 @@ func (pkg *Package) generateInitorCode() {
 	assign := strings.Builder{}
 	pkg.file.addBuilder(&define)
 	pkg.file.addBuilder(&assign)
-	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
+	initorName := pkg.getInitiatorFunctionName()
 	assign.WriteString("func " + initorName + "(){\n")
 	var level = 0
 	for _, node := range pkg.initiators {
@@ -133,6 +132,10 @@ func (pkg *Package) generateInitorCode() {
 	pkg.Project.addInitVariableFunc(initorName, level)
 }
 
+func (pkg *Package) getInitiatorFunctionName() string {
+	return "init_" + pkg.file.name + "_variable"
+}
+
 // 生成rpc客户端的代码
 func (pkg *Package) GenerateRpcClientCode() {
 	var rpcBuilder strings.Builder
@@ -150,6 +153,7 @@ func (pkg *Package) GenerateRpcClientCode() {
 func (pkg *Package) GenerateRouteCode() {
 	// 产生文件；
 	// 针对每个struct，产生servlet文件；
+	// init 函数有多个，每个servlet_group一个函数；
 	var builders = make(map[string]*strings.Builder)
 	for _, class := range pkg.StructMap {
 		if len(class.servlets) > 0 {

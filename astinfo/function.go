@@ -79,7 +79,7 @@ func (comment *functionComment) dealValuePair(key, value string) {
 	case UrlFilter:
 		comment.Url = value
 		comment.funcType = FILTER
-	case Filter:
+	case FilterConst:
 		if len(value) == 0 {
 			value = Servlet
 		}
@@ -305,12 +305,12 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	var sb strings.Builder
 	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url)
 	var server = method.pkg.Project.servers[method.comment.serverName]
-	methodUrl := strings.Trim(method.comment.Url, "\"")
+	methodUrl := method.comment.Url
 	for _, filter := range server.urlFilters {
-		filterUrl := strings.Trim(filter.comment.Url, "\"")
+		filterUrl := filter.url
 		if len(filterUrl) > 0 && strings.Contains(methodUrl, filterUrl) {
-			sb.WriteString(",\n")
-			sb.WriteString(filter.genFilterCall(file))
+			sb.WriteString(",")
+			sb.WriteString(filter.genName)
 			break
 		}
 	}
@@ -377,20 +377,4 @@ func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) str
 		paramstr[i] = param.generateCode(prefix, file)
 	}
 	return fmt.Sprintf(prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")")
-}
-
-func (filter *Function) genFilterCall(file *GenedFile) string {
-	impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-	return `func(c*gin.Context){
-		res:=` +
-		impt.Name + "." + filter.Name +
-		`(c,&c.Request)
-		if(res.Code!=0){
-			c.JSON(200, 
-			Response{
-				Code:int(res.Code),
-				Message: res.Message,
-			})
-		}
-	}`
 }
