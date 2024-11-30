@@ -424,6 +424,7 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	}
 	var content strings.Builder
 	content.WriteString("func initVariable() {\n")
+	//保证按照依赖关系生成代码
 	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
 		return Project.initVariableFuns[i].level < Project.initVariableFuns[j].level
 	})
@@ -524,7 +525,8 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		}
 		content.WriteString("},\n")
 		content.WriteString("routerInitors: []func(*gin.Engine){\n")
-		// server.initRouteFuns
+		// 此处排序的目的是为了保证生成代码的顺序，理论上不需要排序，但是避免顺序不一致导致的代码不一致，避免不要的代码提交
+		sort.Strings(server.initRouteFuns)
 		for _, fun := range server.initRouteFuns {
 			content.WriteString(fmt.Sprintf("%s,\n", fun))
 		}

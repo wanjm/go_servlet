@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"sort"
 	"strings"
 )
 
@@ -155,7 +156,14 @@ func (pkg *Package) GenerateRouteCode() {
 	// 针对每个struct，产生servlet文件；
 	// init 函数有多个，每个servlet_group一个函数；
 	var builders = make(map[string]*strings.Builder)
-	for _, class := range pkg.StructMap {
+	// maps.Keys[]()
+	var keys = make([]string, 0, len(pkg.StructMap))
+	for k := range pkg.StructMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		class := pkg.StructMap[key]
 		if len(class.servlets) > 0 {
 			routerName := "init_" + class.comment.groupName + "_" + pkg.file.name + "_router"
 			var builder *strings.Builder
