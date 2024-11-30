@@ -22,6 +22,7 @@ func (filter *Filter) genFilterCode(file *GenedFile) {
 	filter.genName = "filter_" + pkg.file.name + "_" + filter.function.Name
 	impt := file.getImport(pkg.modPath, pkg.modName)
 	var sb = strings.Builder{}
+	sb.WriteString("//filter_${pkg.file.name}_${filter.function.Name}\n")
 	sb.WriteString("func ")
 	sb.WriteString(filter.genName)
 	sb.WriteString("(c *gin.Context) {\nres:=")
