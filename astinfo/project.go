@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -52,8 +53,14 @@ func (project *Project) ParseMod() {
 	//读取go.mod
 	modFile, err := os.Open("go.mod")
 	if err != nil {
-		log.Panicf("failed to open go.mod with error %s\n", err.Error())
-		return
+		if project.cfg.InitMain {
+			fmt.Printf("please input go.mod Name:\n")
+			fmt.Scan(&project.Mod)
+			return
+		} else {
+			log.Panicf("failed to open go.mod with error %s\n", err.Error())
+			return
+		}
 	}
 	defer modFile.Close()
 	scanner := bufio.NewScanner(modFile)
@@ -68,9 +75,9 @@ func (project *Project) ParseMod() {
 }
 func (project *Project) Parse() {
 	project.ParseMod()
-	if project.cfg.Generation.TraceKey == "" {
-		panic("TraceKey is empty")
-	}
+	// if project.cfg.Generation.TraceKey == "" {
+	// 	panic("TraceKey is empty")
+	// }
 	traceKeyMod := project.cfg.Generation.TraceKeyMod
 	if !strings.Contains(traceKeyMod, ".") {
 		project.cfg.Generation.TraceKeyMod = project.Mod + "/" + traceKeyMod
@@ -325,7 +332,9 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	if len(funcManager.initRpcField) == 0 {
 		return
 	}
-
+	if funcManager.cfg.Generation.TraceKey == "" {
+		panic("plase set TraceKey as needed by rpc client")
+	}
 	file.getImport("bytes", "bytes")
 	file.getImport("encoding/json", "json")
 	file.getImport("fmt", "fmt")
@@ -498,8 +507,11 @@ var servers map[string]*server
 	}
 		const TraceId = "TraceId"
 	`)
-	oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "xx")
-	content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
+	if Project.cfg.Generation.TraceKey != "" {
+		// prpc的发送请求是，会向http头添加traceId，需要使用该变量
+		oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "xx")
+		content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
+	}
 	file.addBuilder(&content)
 }
 func (Project *Project) genPrepare(file *GenedFile) {
@@ -547,6 +559,11 @@ func (project *Project) genInitMain() {
 	//如果是空目录，或者init为true；则生成main.go 和basic.go的Error类；
 	if !project.cfg.InitMain {
 		return
+	}
+	_, err := os.Stat("go.mod")
+	if os.IsNotExist(err) {
+		var content = "module " + project.Mod + "\n" + strings.Replace(runtime.Version(), "go", "go ", 1) + "\n"
+		os.WriteFile("go.mod", []byte(content), 0660)
 	}
 	var content strings.Builder
 	content.WriteString("package main\n")
