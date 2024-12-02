@@ -526,7 +526,13 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString(fun + "\n")
 	}
 	content.WriteString("servers = make(map[string]*server)\n")
-	for _, server := range Project.servers {
+	var servers = []string{}
+	for name := range Project.servers {
+		servers = append(servers, name)
+	}
+	sort.Strings(servers)
+	for _, serverName := range servers {
+		server := Project.servers[serverName]
 		fmt.Printf("generate code for server '%s'\n", server.name)
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
 		content.WriteString("filters: gin.HandlersChain{\n")
