@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+const (
+	globalPrefix = "__global_"
+)
+
 // 初始化函数依赖关系节点
 type DependNode struct {
 	level          int
@@ -101,6 +105,7 @@ func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
 		name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
 		name = strings.ReplaceAll(name, "/", "_")
 	}
+	name = globalPrefix + name
 	variable := Variable{
 		// creator:   initor,
 		class:     result.findStruct(true),

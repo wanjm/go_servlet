@@ -53,6 +53,7 @@ func (inits *Initiators) addInitiator(node *DependNode) {
 }
 func (init *Initiators) getVariable(name string) *DependNode {
 	name = strings.ToLower(name)
+	name = globalPrefix + name
 	if variable, ok := init.list[name]; ok {
 		return variable
 	}

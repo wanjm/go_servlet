@@ -332,9 +332,9 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	if len(funcManager.initRpcField) == 0 {
 		return
 	}
-	if funcManager.cfg.Generation.TraceKey == "" {
-		panic("plase set TraceKey as needed by rpc client")
-	}
+	// if funcManager.cfg.Generation.TraceKey == "" {
+	// 	panic("plase set TraceKey as needed by rpc client")
+	// }
 	file.getImport("bytes", "bytes")
 	file.getImport("encoding/json", "json")
 	file.getImport("fmt", "fmt")
@@ -511,6 +511,8 @@ var servers map[string]*server
 		// prpc的发送请求是，会向http头添加traceId，需要使用该变量
 		oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "xx")
 		content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
+	} else {
+		content.WriteString("var TraceIdNameInContext = \"badTraceIdName plase config in Generation TraceKeyMod\"\n")
 	}
 	file.addBuilder(&content)
 }
