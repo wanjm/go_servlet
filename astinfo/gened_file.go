@@ -1,6 +1,7 @@
 package astinfo
 
 import (
+	"fmt"
 	"go/format"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ func (file *GenedFile) save() {
 	src := []byte(content.String())
 	src, err := format.Source(src)
 	if err != nil {
-		panic(err)
+		fmt.Printf("Beautify code error, keep the raw code error: %s\n", err.Error())
 	}
 	osfile, err := os.Create(file.name + ".go")
 	if err != nil {
@@ -95,7 +96,7 @@ func (file *GenedFile) genImport() string {
 	var i = 0
 	for _, v := range file.genCodeImport {
 		// baseName := filepath.Base(v.Path)
-		imports[i] = v.Name + " \"" + strings.ReplaceAll(v.Path, "\\", "/") + "\""
+		imports[i] = v.Name + " \"" + v.Path + "\""
 		/*
 			// if baseName != v.Name {
 			sb.WriteString(v.Name)

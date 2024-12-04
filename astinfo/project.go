@@ -24,7 +24,9 @@ func (s *server) getFilterCode(file *GenedFile) {
 	if len(s.urlFilters) == 0 {
 		return
 	}
-	for _, filter := range s.urlFilters {
+	keys := getSortedKey(s.urlFilters)
+	for _, key := range keys {
+		filter := s.urlFilters[key]
 		filter.genFilterCode(file)
 	}
 }
@@ -147,6 +149,7 @@ func (project *Project) addUrlFilter(function *Function, serverName string) {
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
+	modPath = strings.ReplaceAll(modPath, "\\", "/")
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
 		// fmt.Printf("create package %s\n", modPath)
@@ -278,7 +281,7 @@ func (project *Project) GenerateCode() {
 	for _, pkg := range project.Package {
 		var name string
 		name = project.getRelativeModePath(pkg.modPath)
-		name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
+		name = strings.ReplaceAll(name, "/", "_")
 		pkg.file = createGenedFile(name)
 
 	}
@@ -526,11 +529,7 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString(fun + "\n")
 	}
 	content.WriteString("servers = make(map[string]*server)\n")
-	var servers = []string{}
-	for name := range Project.servers {
-		servers = append(servers, name)
-	}
-	sort.Strings(servers)
+	var servers = getSortedKey(Project.servers)
 	for _, serverName := range servers {
 		server := Project.servers[serverName]
 		fmt.Printf("generate code for server '%s'\n", server.name)
