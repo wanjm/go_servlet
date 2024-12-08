@@ -1,6 +1,8 @@
 package astinfo
 
 import (
+	"fmt"
+	"go/format"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,15 +35,22 @@ func (file *GenedFile) save() {
 	if len(file.contents) == 0 {
 		return
 	}
+	content := strings.Builder{}
+	content.WriteString("package gen\n")
+	content.WriteString(file.genImport())
+	for _, content1 := range file.contents {
+		content.WriteString(content1.String())
+	}
+	src := []byte(content.String())
+	src, err := format.Source(src)
+	if err != nil {
+		fmt.Printf("Beautify code error, keep the raw code error: %s\n", err.Error())
+	}
 	osfile, err := os.Create(file.name + ".go")
 	if err != nil {
-
+		panic(err)
 	}
-	osfile.WriteString("package gen\n")
-	osfile.WriteString(file.genImport())
-	for _, content := range file.contents {
-		osfile.WriteString(content.String())
-	}
+	osfile.Write(src)
 }
 
 func (file *GenedFile) addBuilder(builder *strings.Builder) {
@@ -53,7 +62,11 @@ func (file *GenedFile) getImport(modePath, modeName string) (result *Import) {
 	if impt, ok := file.genCodeImport[modePath]; ok {
 		return impt
 	}
-	// pkg的modName是在解析package代码时生成的。然后对于第三方的pkg，由于不会解析packge，所以其modeName为空，此时用modePath的baseName来代替，不会产生问题；
+	// pkg的modName是在解析package代码时生成的。然后对于第三方的pkg，由于不会解析packge，所以其modeName为空，
+	// 此时用modePath的baseName来代替，会产生问题，并不是每个package的modeName都是baseName的。如"github.com/redis/go-redis/v9"的modeName是redis
+	// 同时在生成代码时，会将baseModePath和modeName相同的，省掉modeName不写；但是go默认modeName是定义package时的packge字段描述的。
+	// 此处使用等价规则，会产生问题；而由于我们不扫描第三方package，所以不知道其正确的modeName
+	// 临时解决方案是，产生代码时，import全部写modeName，不省略；
 	if len(modeName) == 0 {
 		modeName = filepath.Base(modePath)
 	}
@@ -79,15 +92,23 @@ func (file *GenedFile) genImport() string {
 	}
 	var sb strings.Builder
 	sb.WriteString("import (\n")
+	imports := make([]string, len(file.genCodeImport))
+	var i = 0
 	for _, v := range file.genCodeImport {
-		baseName := filepath.Base(v.Path)
-		if baseName != v.Name {
+		// baseName := filepath.Base(v.Path)
+		imports[i] = v.Name + " \"" + v.Path + "\""
+		/*
+			// if baseName != v.Name {
 			sb.WriteString(v.Name)
-		}
-		sb.WriteString(" \"")
-		sb.WriteString(v.Path)
-		sb.WriteString("\"\n")
+			// }
+			_ = baseName
+			sb.WriteString(" \"")
+			sb.WriteString(strings.ReplaceAll(v.Path, "\\", "/"))
+			sb.WriteString("\"\n")
+		*/
+		i++
 	}
-	sb.WriteString(")\n")
+	sb.WriteString(strings.Join(imports, "\n"))
+	sb.WriteString("\n)\n")
 	return sb.String()
 }

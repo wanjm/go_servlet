@@ -3,6 +3,8 @@ package astinfo
 import (
 	"go/ast"
 	"strings"
+
+	"github.com/go-openapi/spec"
 )
 
 // /@goservlet prpc=xxx; servlet=xxx; servle; prpc
@@ -42,8 +44,8 @@ type Struct struct {
 	fields      []*Field
 	usage       int
 	comment     structComment
-
 	// 自动生成代码相关参数，此处可能需要更改为StructObject对象
+	ref *spec.Ref
 }
 
 func CreateStruct(name string, pkg *Package) *Struct {
@@ -67,12 +69,16 @@ func (class *Struct) parse(structType *ast.StructType, goFile *GoFile) {
 	}
 }
 
-func (class *Struct) parseComment(doc *ast.CommentGroup) string {
-	if doc == nil {
-		return ""
+func (class *Struct) parseComment(doc *ast.CommentGroup) {
+	parseComment(doc, &class.comment)
+	for _, servlet := range class.servlets {
+		if servlet.comment.serverName == "" {
+			servlet.comment.serverName = class.comment.groupName
+		}
 	}
-
-	return ""
+	if class.comment.serverType != NOUSAGE {
+		class.Package.Project.addServer(class.comment.groupName)
+	}
 }
 
 // 注意跟变量注入区分开来

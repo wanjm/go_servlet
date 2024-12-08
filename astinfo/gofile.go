@@ -116,16 +116,15 @@ func (goFile *GoFile) parseType(genDecl *ast.GenDecl) {
 		interfaceType := typeSpec.Type.(*ast.InterfaceType)
 		itface := goFile.pkg.getInterface(typeSpec.Name.Name, true)
 		itface.parseComment(genDecl.Doc)
-		itface.Parse(interfaceType, goFile)
-		fmt.Printf("interface %s\n", typeSpec.Name.Name)
+		if itface.config != nil {
+			itface.Parse(interfaceType, goFile)
+			fmt.Printf("interface %s\n", typeSpec.Name.Name)
+		}
 	case *ast.StructType:
 		structType := typeSpec.Type.(*ast.StructType)
 		class := goFile.pkg.getStruct(typeSpec.Name.Name, true)
 		class.structFound = true
-		parseComment(genDecl.Doc, &class.comment)
-		if class.comment.serverType != NOUSAGE {
-			goFile.pkg.Project.addServer(class.comment.groupName)
-		}
+		class.parseComment(genDecl.Doc)
 		class.parse(structType, goFile)
 	}
 }
@@ -136,6 +135,6 @@ func (goFile *GoFile) parseMethod(method *ast.FuncDecl) {
 	method1.Parse()
 }
 func (goFile *GoFile) parseFunction(funcDecl *ast.FuncDecl) {
-	function1 := createFunction(funcDecl, goFile)
+	function1 := createFunction(funcDecl, goFile, &goFile.pkg.FunctionManager)
 	function1.Parse()
 }

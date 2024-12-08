@@ -11,10 +11,60 @@ import (
 	"github.com/go-openapi/spec"
 )
 
+type SchemaType interface {
+	InitSchema(*spec.Schema, *Swagger)
+}
+
+func (r *RawType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+	// 获取原始类型对应到swagger的类型
+	var name = "integer"
+	switch r.Name {
+	case "string":
+		name = "string"
+	case "array":
+		name = "array"
+	case "map":
+		name = "object"
+	case "bool":
+		name = "bool"
+	case "float32", "float64":
+		name = "number"
+	}
+
+	schema.Type = []string{name}
+}
+func (r *ArrayType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+	schema.Type = []string{"array"}
+	schema.Items = &spec.SchemaOrArray{
+		Schema: &spec.Schema{},
+	}
+	if r.OriginType == nil {
+		r.OriginType = r.pkg.getStruct(r.typeName, false)
+	}
+	r.OriginType.InitSchema(schema.Items.Schema, swagger)
+}
+func (m *MapType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+	schema.Type = []string{"object"}
+	schema.AdditionalProperties = &spec.SchemaOrBool{
+		Schema: &spec.Schema{},
+	}
+}
+
+func (s *Struct) InitSchema(schema *spec.Schema, swagger *Swagger) {
+	// schema.Ref = spec.Ref{
+	if s.ref == nil {
+		s.ref = swagger.getRefOfStruct(s)
+	}
+	schema.Ref = *s.ref
+}
+
+func (e *EmptyType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+}
+
 type Swagger struct {
-	swag           *spec.Swagger
-	project        *Project
-	definitions    map[string]*spec.Ref
+	swag    *spec.Swagger
+	project *Project
+	// definitions    map[*Struct]*spec.Ref
 	responseResult *Struct
 }
 
@@ -45,9 +95,9 @@ func NewSwagger(project *Project) (result *Swagger) {
 		},
 	}
 	result = &Swagger{
-		swag:        swag,
-		project:     project,
-		definitions: make(map[string]*spec.Ref),
+		swag:    swag,
+		project: project,
+		// definitions: make(map[string]*spec.Ref),
 	}
 	if len(project.cfg.SwaggerCfg.UrlPrefix) > 0 {
 		if !strings.HasPrefix(project.cfg.SwaggerCfg.UrlPrefix, "/") {
@@ -127,16 +177,16 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 			continue
 		}
 		operation.Parameters = parameter
-		var objRef *spec.Ref
+		var objFieldPtr *Field
 		if len(servlet.Results) > 1 {
 			field0 := servlet.Results[0]
 			if field0.class == nil {
 				field0.findStruct(false)
 			}
-			objRef = swagger.getRefOfStruct(field0.class.(*Struct))
+			objFieldPtr = field0
 		}
-		// addSecurity(servlet, operation) apix中使用了全局的header，暂时不显示
-		var response spec.Response = swagger.getSwaggerResponse(objRef)
+		addSecurity(servlet, operation) //apix中使用了全局的header，暂时不显示
+		var response spec.Response = swagger.getSwaggerResponse(objFieldPtr)
 		operation.Responses.StatusCodeResponses[200] = response
 		paths[swagger.project.cfg.SwaggerCfg.UrlPrefix+url] = pathItem
 	}
@@ -149,11 +199,12 @@ func addSecurity(function *Function, operation *spec.Operation) {
 	}
 	for _, s := range function.pkg.Project.servers {
 		if s.name == function.comment.serverName {
-			for url, filter := range s.urlFilters {
-				servletUrl := strings.Trim(filter.comment.Url, "\"")
-				filterUrl := strings.Trim(url, "\"")
-				if strings.Contains(servletUrl, filterUrl) {
-					for _, header := range filter.comment.security {
+			for _, filter := range s.urlFilters {
+				url := filter.url
+				filterFunction := filter.function
+				servletUrl := filterFunction.comment.Url
+				if strings.Contains(servletUrl, url) {
+					for _, header := range filterFunction.comment.security {
 						operation.Security = append(operation.Security, map[string][]string{
 							header: {"string"},
 						})
@@ -164,15 +215,18 @@ func addSecurity(function *Function, operation *spec.Operation) {
 	}
 }
 func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
-	if cfg.Token == "" {
-		return ""
-	}
+
 	project := swagger.project
 	for name, pkg := range project.Package {
 		_ = name
 		swagger.addServletFromPackage(pkg)
 	}
 	swaggerJson, _ := swagger.swag.MarshalJSON()
+	if cfg.Token == "" {
+		//如果不上传，则打印到控制台
+		fmt.Printf("swagger:%s\n", string(swaggerJson))
+		return ""
+	}
 	cmdMap := map[string]interface{}{
 		"input": string(swaggerJson),
 		"options": map[string]interface{}{
@@ -210,17 +264,30 @@ func (swagger *Swagger) addServletFromPackage(pkg *Package) {
 }
 
 func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
-	if ref, ok := swagger.definitions[class.Name]; ok {
-		return ref
-	}
 	schemas := make(map[string]spec.Schema)
 	result := spec.SchemaProps{
 		Type:       []string{"object"},
 		Properties: schemas,
 	}
-	rawpkg := swagger.project.getPackage(GolangRawType, false)
+	/*
+		"expireType": { //结构体格式
+			"$ref": "#/definitions/schema.ExpireType"
+		},
+		"expireValue": { //原始类型格式
+			"type": "integer"
+		},
+		"gradeIds": {  //数组格式
+			"type": "array",
+			"items": {
+				"type": "integer"
+			}
+		},
+	*/
 	for _, field := range class.fields {
 		var name = field.jsonName
+		if name == "-" {
+			continue
+		}
 		if len(name) == 0 {
 			name = firstLower(field.name)
 		}
@@ -229,17 +296,14 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 				Description: field.comment,
 			},
 		}
-		typeName := field.typeName
-		if len(typeName) > 0 {
-			if field.pkg == rawpkg {
-				typeName = getRawTypeString(typeName)
-			}
-			schema.Type = []string{typeName}
+		if st, ok := field.class.(SchemaType); ok {
+			st.InitSchema(&schema, swagger)
+		} else {
+			fmt.Printf("ERROR: field %s is not a SchemaType\n", field.name)
 		}
 		schemas[name] = schema
 	}
 	ref, _ := spec.NewRef("#/definitions/" + class.Name)
-	swagger.definitions[class.Name] = &ref
 	swagger.swag.Definitions[class.Name] = spec.Schema{
 		SchemaProps: result,
 	}
@@ -247,56 +311,57 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 }
 
 func (swagger *Swagger) initResponseResult() {
-	rawpkg := swagger.project.getPackage(GolangRawType, false)
+	rawpkg := swagger.project.rawPkg
 	class := Struct{
 		Name: "ResponseResult",
 		fields: []*Field{
 			{
+				class:    swagger.project.getStruct("int", nil, nil),
 				name:     "code",
 				typeName: "int",
 				pkg:      rawpkg,
 			},
 			{
+				class:    swagger.project.getStruct("string", nil, nil),
 				name:     "msg",
 				typeName: "string",
 				pkg:      rawpkg,
 			},
 			{
-				name: "obj",
+				class: &EmptyType{},
+				name:  "obj",
 			},
 		},
 	}
-	swagger.getRefOfStruct(&class)
 	swagger.responseResult = &class
 }
 
-func (swagger *Swagger) getSwaggerResponse(objRef *spec.Ref) spec.Response {
-	respoinseResult := swagger.getRefOfStruct(swagger.responseResult)
+func (swagger *Swagger) getSwaggerResponse(objField *Field) spec.Response {
+	schema := spec.Schema{
+		SchemaProps: spec.SchemaProps{},
+	}
+	swagger.responseResult.InitSchema(&schema, swagger)
 	var result = spec.Response{
 		ResponseProps: spec.ResponseProps{
 			Schema: &spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					AllOf: []spec.Schema{{
-						SchemaProps: spec.SchemaProps{
-							Ref: *respoinseResult,
-						},
-					}},
+					AllOf: []spec.Schema{schema},
 				},
 			},
 		},
 	}
-	if objRef == nil {
+	if objField == nil {
 		return result
 	}
+	var objSchema = spec.Schema{
+		SchemaProps: spec.SchemaProps{},
+	}
+	objField.class.(SchemaType).InitSchema(&objSchema, swagger)
 	ref := spec.Schema{
 		SchemaProps: spec.SchemaProps{
 			Type: []string{"object"},
 			Properties: map[string]spec.Schema{
-				"obj": {
-					SchemaProps: spec.SchemaProps{
-						Ref: *objRef,
-					},
-				},
+				"obj": objSchema,
 			},
 		},
 	}

@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/go-openapi/spec"
@@ -13,9 +15,25 @@ import (
 
 type server struct {
 	name          string
-	initRouteFuns []string             //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
-	urlFilters    map[string]*Function //记录url过滤器函数
-	initFuncs     []string             //initAll 调用的init函数；
+	initRouteFuns []string           //initRoute 调用的init函数； 有package生成，生成路由代码时生成，一个package生成一个路由代码
+	urlFilters    map[string]*Filter //记录url过滤器函数,key是url, url是原始文件中的url，可能包含引号
+	initFuncs     []string           //initAll 调用的init函数；
+}
+
+func (s *server) getFilterCode(file *GenedFile) {
+	if len(s.urlFilters) == 0 {
+		return
+	}
+	keys := getSortedKey(s.urlFilters)
+	for _, key := range keys {
+		filter := s.urlFilters[key]
+		filter.genFilterCode(file)
+	}
+}
+
+type initFunction struct {
+	name  string
+	level int
 }
 type Project struct {
 	cfg     *Config
@@ -23,21 +41,28 @@ type Project struct {
 	Mod     string              // 该项目的mode名字
 	Package map[string]*Package //key是mod的全路径
 	servers map[string]*server  //key是server的名字，default，prpcserver
+	rawPkg  *Package            //仅仅是一个标记package，里面没有设计内容
 	// creators map[*Struct]*Initiator
 	initFuncs        []string                //initAll 调用的init函数；
 	initiatorMap     map[*Struct]*Initiators //便于注入时根据类型存照
-	initVariableFuns []string                //initVriable 调用的init函数； 由package生成代码时，处理initiator函数生成；
+	initVariableFuns []*initFunction         //initVriable 调用的各个package生成的init函数；处理initiator函数生成；
 	initRpcField     []*Field                //initRpcClient 调用的init函数；主要是给每个initClient调用
-	initMain         bool
 	swag             *spec.Swagger
+	rawTypes         map[string]SchemaType
 }
 
-func (project *Project) Parse() {
+func (project *Project) ParseMod() {
 	//读取go.mod
 	modFile, err := os.Open("go.mod")
 	if err != nil {
-		log.Panicf("failed to open go.mod with error %s\n", err.Error())
-		return
+		if project.cfg.InitMain {
+			fmt.Printf("please input go.mod Name:\n")
+			fmt.Scan(&project.Mod)
+			return
+		} else {
+			log.Panicf("failed to open go.mod with error %s\n", err.Error())
+			return
+		}
 	}
 	defer modFile.Close()
 	scanner := bufio.NewScanner(modFile)
@@ -48,6 +73,16 @@ func (project *Project) Parse() {
 	} else {
 		log.Panicf("failed to read go.mod, please run 'go mod init' first\n")
 		return
+	}
+}
+func (project *Project) Parse() {
+	project.ParseMod()
+	// if project.cfg.Generation.TraceKey == "" {
+	// 	panic("TraceKey is empty")
+	// }
+	traceKeyMod := project.cfg.Generation.TraceKeyMod
+	if !strings.Contains(traceKeyMod, ".") {
+		project.cfg.Generation.TraceKeyMod = project.Mod + "/" + traceKeyMod
 	}
 	project.parseDir(project.Path)
 }
@@ -64,66 +99,57 @@ func CreateProject(path string, cfg *Config) *Project {
 	// 由于Package中有指向Project的指针，所以RawPackage指向了此处的project，如果返回对象，则出现了两个Project，一个是返回的Project，一个是RawPackage中的Project；
 	// 返回*Project才能保证这是一个Project对象；
 	project.initRawPackage()
+	// project.rawPkg = project.getPackage("", true)
 	return &project
 }
+
 func (project *Project) initRawPackage() {
-	rawPkg := project.getPackage(GolangRawType, true) //创建原始类型
-	rawPkg.getStruct("string", true)
-	rawPkg.getStruct("bool", true)
-	rawPkg.getStruct("byte", true)
-	rawPkg.getStruct("rune", true)
-	rawPkg.getStruct("int", true)
-	rawPkg.getStruct("int8", true)
-	rawPkg.getStruct("int16", true)
-	rawPkg.getStruct("int32", true)
-	rawPkg.getStruct("int64", true)
-	rawPkg.getStruct("uint", true)
-	rawPkg.getStruct("uint8", true)
-	rawPkg.getStruct("uint16", true)
-	rawPkg.getStruct("uint32", true)
-	rawPkg.getStruct("uint64", true)
-	rawPkg.getStruct("float32", true)
-	rawPkg.getStruct("float64", true)
-	rawPkg.getStruct("array", true)
-	rawPkg.getStruct("map", true)
+	project.rawTypes = make(map[string]SchemaType)
+	project.rawPkg = project.getPackage("", true) //创建原始类型
+	for _, typeName := range []string{"string", "bool", "byte", "rune", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64", "map"} {
+		project.rawTypes[typeName] = &RawType{Name: typeName}
+	}
+	project.rawTypes["array"] = &ArrayType{}
+	project.rawTypes["map"] = &MapType{}
 }
 
-func getRawTypeString(typeName string) string {
-	switch typeName {
-	case "string":
-		return "string"
-	case "array":
-		return "array"
-	case "map":
-		return "object"
-	case "bool":
-		return "bool"
-	case "float32", "float64":
-		return "number"
-	default:
-		return "integer"
+func (project *Project) getStruct(name string, v1, v2 any) SchemaType {
+	if name == "array" {
 	}
+	if rawType, ok := project.rawTypes[name]; ok {
+		return rawType
+	}
+	return nil
 }
 
 func (project *Project) addServer(name string) {
+	if len(name) == 0 {
+		fmt.Printf("WARN: server name should not empty\n")
+	}
 	if _, ok := project.servers[name]; !ok {
 		project.servers[name] = &server{name: name}
 		return
 	}
 }
 func (project *Project) addUrlFilter(function *Function, serverName string) {
+	if len(serverName) == 0 {
+		fmt.Printf("WARN: server name should not empty for filter %s in file %s\n", function.Name, function.goFile.path)
+	}
 	var s *server
 	if s = project.servers[serverName]; s == nil {
-		s = &server{name: serverName, urlFilters: make(map[string]*Function)}
+		s = &server{name: serverName, urlFilters: make(map[string]*Filter)}
 		project.servers[serverName] = s
 	}
 	if filter, ok := s.urlFilters[function.comment.Url]; ok {
-		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, filter.pkg.modPath)
+		function := filter.function
+		log.Fatalf("url %s has been defined in %s\n", function.comment.Url, function.pkg.modPath)
 	} else {
-		s.urlFilters[function.comment.Url] = function
+		filter := newFilter(function.comment.Url, function)
+		s.urlFilters[function.comment.Url] = filter
 	}
 }
 func (project *Project) getPackage(modPath string, create bool) *Package {
+	modPath = strings.ReplaceAll(modPath, "\\", "/")
 	pkg := project.Package[modPath]
 	if pkg == nil && create {
 		// fmt.Printf("create package %s\n", modPath)
@@ -212,7 +238,6 @@ func (project *Project) generateUrlFilter(file *GenedFile) {
 						ctx.Abort()
 						return
 					}
-					break
 				}
 			}
 			ctx.Next()
@@ -256,11 +281,25 @@ func (project *Project) GenerateCode() {
 	for _, pkg := range project.Package {
 		var name string
 		name = project.getRelativeModePath(pkg.modPath)
-		name = strings.ReplaceAll(name, string(os.PathSeparator), "_")
+		name = strings.ReplaceAll(name, "/", "_")
 		pkg.file = createGenedFile(name)
-		pkg.generateInitorCode()
+
+	}
+	initManager := InitiatorManager{
+		// initiatorMap: make(map[*Struct]*Initiators),
+		project: project,
 	}
 
+	//生成变量初始化代码
+	initManager.genInitiator()
+	for _, pkg := range project.Package {
+		pkg.generateInitorCode()
+	}
+	filterFile := createGenedFile("filter")
+	for _, server := range project.servers {
+		server.getFilterCode(filterFile)
+	}
+	filterFile.save()
 	for name, pkg := range project.Package {
 		_ = name
 		// fmt.Printf("deal package %s\n", name)
@@ -277,65 +316,84 @@ func (project *Project) GenerateCode() {
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
 }
 
-func (funcManager *Project) addInitiatorVaiable(initiator *Variable) {
-	// 后续添加排序功能
-	// funcManager.initiator = append(funcManager.initiator, initiator)
-	var inits *Initiators
-	var ok bool
-	if inits, ok = funcManager.initiatorMap[initiator.class]; !ok {
-		inits = createInitiators()
-		funcManager.initiatorMap[initiator.class] = inits
+func (funcManager *Project) getDependNode(class *Struct, varName string) *DependNode {
+	inits := funcManager.initiatorMap[class]
+	if inits == nil {
+		return nil
 	}
-	inits.addInitiator(initiator)
-
+	return inits.getVariable(varName)
 }
-
-func (funcManager *Project) getVariable(class *Struct, varName string) string {
+func (funcManager *Project) getVariableName(class *Struct, varName string) string {
 	inits := funcManager.initiatorMap[class]
 	if inits == nil {
 		return ""
 	}
-	return inits.getVariableName(varName)
+	return inits.getVariable(varName).returnVariable.name
 }
 
 func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 	if len(funcManager.initRpcField) == 0 {
 		return
 	}
-
+	// if funcManager.cfg.Generation.TraceKey == "" {
+	// 	panic("plase set TraceKey as needed by rpc client")
+	// }
 	file.getImport("bytes", "bytes")
 	file.getImport("encoding/json", "json")
 	file.getImport("fmt", "fmt")
 	file.getImport("net/http", "http")
+	file.getImport("context", "context")
 
 	var content strings.Builder
-	content.WriteString("func initRpcClient() {\n")
+	content.WriteString("func initRpcClient() {\n//初始化rpc客户端,由于Prefix，是Host可以通过变量配置，所以需要写到basic中，因为本程序默认可见basic,basic可见性由filter引入，否则需要增加代码复杂度，暂时不支持，后续通过扫描变量的方式添加\n")
 	for _, field := range funcManager.initRpcField {
 		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
 		cfg := field.pkg.getInterface(field.typeName, false).config
-		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s+\":\"+%s}}\n", impt.Name, field.name, field.typeName, cfg.Port, cfg.Host))
+		host := cfg.Host
+		if !strings.HasPrefix(host, "\"") {
+			host = impt.Name + "." + host
+		}
+		content.WriteString(fmt.Sprintf("%s.%s = &%sStruct{client:RpcClient{Prefix:%s}}\n", impt.Name, field.name, field.typeName, host))
 	}
 	content.WriteString("}\n")
 	content.WriteString(`
-	type RpcResult struct {
-	C int             "json:\"c\""
-	O json.RawMessage "json:\"o\""
+type Error struct {
+	Code    int    "json:\"code\""
+	Message string "json:\"message\""
+}
+
+func (error *Error) Error() string {
+	return error.Message
+}
+
+type RpcResult struct {
+	C int    "json:\"c\""
+	O [2]any "json:\"o\""
 }
 type RpcClient struct {
 	Prefix string
 }
 
-func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult {
+func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []interface{}) RpcResult {
 	content, marError := json.Marshal(array)
 	if marError != nil {
 		fmt.Printf("%v\n", marError)
-		return RpcResult{C: 1, O: nil}
+		return RpcResult{C: 1, O: [2]interface{}{nil, json.RawMessage{}}}
 	}
-	resp, error := http.Post(client.Prefix+name, "", bytes.NewReader(content))
-	if error != nil {
-		fmt.Printf("%v\n", error)
+	req, err := http.NewRequest("POST", client.Prefix+name, bytes.NewReader(content))
+	var resp *http.Response
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		//TID 这个跟common包中的TraceId一致，通过字符串建立关系，通过类暂时搞不定
+		req.Header.Set(TraceId, ctx.Value(TraceIdNameInContext).(string))
+		resp, err = http.DefaultClient.Do(req)
 	}
-	var res = RpcResult{}
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	}
+	var res = RpcResult{
+		O: [2]interface{}{&Error{}, &json.RawMessage{}},
+	}
 	dec := json.NewDecoder(resp.Body)
 	dec.Decode(&res)
 	return res
@@ -345,14 +403,20 @@ func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult
 	funcManager.addInitFuncs("initRpcClient()")
 }
 
-func (project *Project) addInitVariable(variableName string) {
-	project.initVariableFuns = append(project.initVariableFuns, variableName+"()")
+func (project *Project) addInitVariableFunc(variableName string, level int) {
+	project.initVariableFuns = append(project.initVariableFuns, &initFunction{
+		name:  variableName,
+		level: level,
+	})
 }
 
 func (project *Project) addInitRoute(routerName string, serverName string) {
 	if s, ok := project.servers[serverName]; ok {
 		s.initRouteFuns = append(s.initRouteFuns, routerName)
 	} else {
+		if len(serverName) == 0 {
+			fmt.Printf("WARN: server name should not empty for router %s\n", routerName)
+		}
 		project.servers[serverName] = &server{name: serverName, initRouteFuns: []string{routerName}}
 	}
 }
@@ -372,8 +436,13 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	}
 	var content strings.Builder
 	content.WriteString("func initVariable() {\n")
+	//保证按照依赖关系生成代码
+	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
+		return Project.initVariableFuns[i].level < Project.initVariableFuns[j].level
+	})
 	for _, fun := range Project.initVariableFuns {
-		content.WriteString(fun + "\n")
+		// fmt.Printf("generate code for initVariable %s level=%d\n", fun.name, fun.level)
+		content.WriteString(fun.name + "()\n")
 	}
 	content.WriteString("}\n")
 	file.addBuilder(&content)
@@ -382,6 +451,7 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 
 func (Project *Project) genBasicCode(file *GenedFile) {
 	file.getImport("github.com/gin-contrib/cors", "cors")
+	file.getImport("sync", "sync")
 	var content strings.Builder
 	content.WriteString(`
 	type Response struct {
@@ -395,16 +465,28 @@ type Config struct {
 	KeyFile string
 	Cors bool
 	Addr string
+	ServerName string
 }
-
+func getAddr[T any](a T)*T{
+	return &a
+}
 type server struct {
-	filters      []*UrlFilter
+	filters      gin.HandlersChain
 	routerInitors []func(*gin.Engine)
 }
 var servers map[string]*server
-	func Run(config Config, serverName string){
+	func Run(config ...Config) *sync.WaitGroup{
 		prepare()
-		var	router  *gin.Engine = gin.Default()
+		var wg sync.WaitGroup
+		for _, c := range config {
+			wg.Add(1)
+			go run(&wg, c)
+		}
+		return &wg
+	}
+	func run(wg *sync.WaitGroup, config Config){
+		var	router  *gin.Engine = gin.New()
+		router.ContextWithFallback = true
 		if(config.Cors){
 			config := cors.DefaultConfig()
 			config.AllowAllOrigins = true
@@ -412,75 +494,83 @@ var servers map[string]*server
 			router.Use(cors.New(config))
 		}
 			//如果不存在，则启动就失败，不需要检查
-			server := servers[serverName]
-	registerFilter(router, server.filters)
-	for _, routerInitor := range server.routerInitors {
-		routerInitor(router)
-	}
+		server := servers[config.ServerName]
+		if server.filters != nil {
+			router.Use(server.filters...)
+		}
+		for _, routerInitor := range server.routerInitors {
+			routerInitor(router)
+		}
 		if config.CertFile != "" {
 			router.RunTLS(config.Addr, config.CertFile, config.KeyFile)
 		} else {
 			router.Run(config.Addr)
 		}
+		wg.Done()
 	}
+		const TraceId = "TraceId"
 	`)
+	if Project.cfg.Generation.TraceKey != "" {
+		// prpc的发送请求是，会向http头添加traceId，需要使用该变量
+		oneImport := file.getImport(Project.cfg.Generation.TraceKeyMod, "xx")
+		content.WriteString(fmt.Sprintf("var TraceIdNameInContext = %s.%s{}\n", oneImport.Name, Project.cfg.Generation.TraceKey))
+	} else {
+		content.WriteString("var TraceIdNameInContext = \"badTraceIdName plase config in Generation TraceKeyMod\"\n")
+	}
 	file.addBuilder(&content)
 }
 func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
-	file.getImport("sync/atomic", "atomic")
+	// file.getImport("sync/atomic", "atomic")
 	content.WriteString(`
-	var prepared atomic.Bool
-
 	func prepare() {
-		if prepared.Load() {
-			return
-		}
-		prepared.Store(true)
 	`)
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
 	}
 	content.WriteString("servers = make(map[string]*server)\n")
-	// servers[""] = &server{
-	// 	filters: []*UrlFilter{
-	// 		{path: "/nc/", function: filter.NcFilter},
-	// 	},
-	// 	routerInitors: []func(*gin.Engine){},
-	// }
-	var oneResult *Field
-
-	for _, server := range Project.servers {
+	var servers = getSortedKey(Project.servers)
+	for _, serverName := range servers {
+		server := Project.servers[serverName]
+		fmt.Printf("generate code for server '%s'\n", server.name)
 		content.WriteString(fmt.Sprintf("servers[\"%s\"] = &server{\n", server.name))
-		content.WriteString("filters: []*UrlFilter{\n")
+		content.WriteString("filters: gin.HandlersChain{\n")
 		for _, filter := range server.urlFilters {
-			impt := file.getImport(filter.pkg.modPath, filter.pkg.modName)
-			oneResult = filter.Results[0]
-			content.WriteString(fmt.Sprintf("{path:%s, function:%s.%s},\n", filter.comment.Url, impt.Name, filter.Name))
+			filterUrl := filter.url
+			if len(filterUrl) == 0 {
+				content.WriteString(filter.genName)
+				content.WriteString(",\n")
+			}
 		}
 		content.WriteString("},\n")
 		content.WriteString("routerInitors: []func(*gin.Engine){\n")
-		// server.initRouteFuns
+		// 此处排序的目的是为了保证生成代码的顺序，理论上不需要排序，但是避免顺序不一致导致的代码不一致，避免不要的代码提交
+		sort.Strings(server.initRouteFuns)
 		for _, fun := range server.initRouteFuns {
 			content.WriteString(fmt.Sprintf("%s,\n", fun))
 		}
 		content.WriteString("},\n")
 		content.WriteString("}\n")
 	}
-	if oneResult != nil {
-		// 动态方式添加 basic.Error;
-		pkg := oneResult.pkg
-		file.getImport(pkg.modPath, pkg.modName)
-	}
-	Project.generateUrlFilter(file)
+	// if oneResult != nil {
+	// 	// 动态方式添加 basic.Error;
+	// 	pkg := oneResult.pkg
+	// 	file.getImport(pkg.modPath, pkg.modName)
+	// }
+	// Project.generateUrlFilter(file)
 	content.WriteString("}\n")
 	file.addBuilder(&content)
 }
 
 func (project *Project) genInitMain() {
 	//如果是空目录，或者init为true；则生成main.go 和basic.go的Error类；
-	if !project.initMain {
+	if !project.cfg.InitMain {
 		return
+	}
+	_, err := os.Stat("go.mod")
+	if os.IsNotExist(err) {
+		var content = "module " + project.Mod + "\n" + strings.Replace(runtime.Version(), "go", "go ", 1) + "\n"
+		os.WriteFile("go.mod", []byte(content), 0660)
 	}
 	var content strings.Builder
 	content.WriteString("package main\n")
@@ -488,10 +578,12 @@ func (project *Project) genInitMain() {
 	content.WriteString("import (\"" + project.Mod + "/gen\")\n")
 	content.WriteString(`
 func main() {
-	gen.Run(gen.Config{
+	wg:=gen.Run(gen.Config{
 		Cors: true,
 		Addr: ":8080",
-	},"servlet")
+		ServerName: "servlet",
+	})
+	wg.Wait()
 }
 	`)
 	os.WriteFile("main.go", []byte(content.String()), 0660)

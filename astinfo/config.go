@@ -13,8 +13,13 @@ type SwaggerCfg struct {
 	UrlPrefix     string // url前缀, 正式环境和本地的路径不一样
 	Token         string
 }
+type Generation struct {
+	TraceKey    string
+	TraceKeyMod string
+}
 type Config struct {
 	SwaggerCfg SwaggerCfg
+	Generation Generation
 	InitMain   bool
 }
 

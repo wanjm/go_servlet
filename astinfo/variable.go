@@ -25,34 +25,27 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 	if creator == nil {
 		//如果没有自带构造器，则先从全局变量中寻找, 全部变量目前支持指针和interface，但是此处没有做检查
 		// if variable.isPointer {
-		name := variable.class.Package.Project.getVariable(variable.class, variable.name)
+		// 生成注入代码时，应该走这里；
+		name := variable.class.Package.Project.getVariableName(variable.class, variable.name)
 		if len(name) > 0 {
 			return name
 		}
 		// }
-		creator := variable.class.getCreator(variable.class)
+		creator = variable.class.getCreator(variable.class)
 		if creator != nil {
 			variable.creator = creator
 			variable.isPointer = creator.Results[0].isPointer
 		}
 	}
 	if creator != nil {
-		var prefix string
-		if len(receiverPrefix) > 0 {
-			prefix = receiverPrefix
-		} else {
-			pkg := creator.pkg
-			impt := file.getImport(pkg.modPath, pkg.modName)
-			prefix = impt.Name + "."
-		}
-		return fmt.Sprintf(prefix + creator.Name + "()")
+		return creator.genCallCode(receiverPrefix, file)
 	}
 
 	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
 	// 生成结构中每个属性的代码
 	fieldsValue := make([]string, 0, len(variable.class.fields))
 	for _, field := range variable.class.fields {
-		if field.pkg.modPath == GolangRawType {
+		if field.pkg == field.pkg.Project.rawPkg {
 			continue
 		}
 		childVar := Variable{

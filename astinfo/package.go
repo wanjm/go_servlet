@@ -1,7 +1,6 @@
 package astinfo
 
 import (
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -102,6 +101,7 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 
 // 生成initiator的代码
 // 定义initorator的函数，在此被调用，并保存在全局变量中；
+// 初始化函数可以自带参数，这些参数是由其他initiator生成的，所以initiator之间是有依赖关系的，需要生成代码时，进行排序，保证生成顺序的正确性；
 func (pkg *Package) generateInitorCode() {
 	if len(pkg.initiators) == 0 {
 		return
@@ -110,35 +110,30 @@ func (pkg *Package) generateInitorCode() {
 	assign := strings.Builder{}
 	pkg.file.addBuilder(&define)
 	pkg.file.addBuilder(&assign)
-	initorName := fmt.Sprintf("init%s_variable", pkg.file.name)
+	initorName := pkg.getInitiatorFunctionName()
 	assign.WriteString("func " + initorName + "(){\n")
-	pkg.Project.addInitVariable(initorName)
-	for _, initor := range pkg.initiators {
-		result := initor.Results[0]
-
-		name := result.name
-		if len(name) == 0 {
-			name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
-			name = strings.ReplaceAll(name, "/", "_")
+	var level = 0
+	for _, node := range pkg.initiators {
+		if node.level > level {
+			level = node.level
 		}
-
-		variable := Variable{
-			creator:   initor,
-			class:     result.findStruct(true),
-			name:      name,
-			isPointer: result.isPointer,
+		initor := node.function
+		variable := node.returnVariable
+		if variable != nil {
+			define.WriteString(variable.genDefinition(pkg.file))
+			define.WriteString("\n")
+			assign.WriteString(variable.name)
+			assign.WriteString("=")
 		}
-		//先添加到全局定义中去，可能给variable补名字
-		pkg.Project.addInitiatorVaiable(&variable)
-		define.WriteString(variable.genDefinition(pkg.file))
-		define.WriteString("\n")
-
-		assign.WriteString(name)
-		assign.WriteString("=")
-		assign.WriteString(variable.generateCode("", pkg.file))
+		assign.WriteString(initor.genCallCode("", pkg.file))
 		assign.WriteString("\n")
 	}
 	assign.WriteString("}\n")
+	pkg.Project.addInitVariableFunc(initorName, level)
+}
+
+func (pkg *Package) getInitiatorFunctionName() string {
+	return "init_" + pkg.file.name + "_variable"
 }
 
 // 生成rpc客户端的代码
@@ -158,8 +153,12 @@ func (pkg *Package) GenerateRpcClientCode() {
 func (pkg *Package) GenerateRouteCode() {
 	// 产生文件；
 	// 针对每个struct，产生servlet文件；
+	// init 函数有多个，每个servlet_group一个函数；
 	var builders = make(map[string]*strings.Builder)
-	for _, class := range pkg.StructMap {
+	// maps.Keys[]()
+	keys := getSortedKey(pkg.StructMap)
+	for _, key := range keys {
+		class := pkg.StructMap[key]
 		if len(class.servlets) > 0 {
 			routerName := "init_" + class.comment.groupName + "_" + pkg.file.name + "_router"
 			var builder *strings.Builder

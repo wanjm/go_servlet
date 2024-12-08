@@ -6,7 +6,8 @@ import (
 )
 
 const TagPrefix = "@goservlet"
-const GolangRawType = "rawType"
+
+// const GolangRawType = "rawType"
 
 type Comment interface {
 	dealValuePair(key, value string)
@@ -21,6 +22,10 @@ func parseComment(commentGroup *ast.CommentGroup, commentor Comment) {
 				newString := text[len(TagPrefix):]
 				commands := strings.Split(newString, ";") // 多个参数以;分割
 				for _, command := range commands {
+					command = strings.Trim(command, " \t")
+					if len(command) == 0 {
+						continue
+					}
 					valuePair := strings.Split(command, "=") // 参数名和参数值以=分割
 					valuePair[0] = strings.Trim(valuePair[0], " \t")
 					// if len(valuePair) == 2 {

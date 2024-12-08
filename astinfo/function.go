@@ -15,7 +15,7 @@ type FunctionManag interface {
 
 type FunctionManager struct {
 	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
-	initiators []*Function           //初始化函数
+	initiators []*DependNode         //初始化函数依赖关系
 	servlets   []*Function           //记录路由代码
 }
 
@@ -35,7 +35,12 @@ func (funcManager *FunctionManager) addCreator(childClass *Struct, function *Fun
 
 // 入参直接是函数返回值的对象，跟method.Result[0]相同,为了保持返回值的variable不受影响
 func (funcManager *FunctionManager) addInitiator(initiator *Function) {
-	funcManager.initiators = append(funcManager.initiators, initiator)
+	funcManager.initiators = append(
+		funcManager.initiators,
+		&DependNode{
+			function: initiator,
+		},
+	)
 }
 
 func (funcManager *FunctionManager) getCreator(childClass *Struct) (function *Function) {
@@ -74,7 +79,7 @@ func (comment *functionComment) dealValuePair(key, value string) {
 	case UrlFilter:
 		comment.Url = value
 		comment.funcType = FILTER
-	case Filter:
+	case FilterConst:
 		if len(value) == 0 {
 			value = Servlet
 		}
@@ -113,13 +118,13 @@ type Function struct {
 	// deprecated bool
 }
 
-func createFunction(f *ast.FuncDecl, goFile *GoFile) *Function {
+func createFunction(f *ast.FuncDecl, goFile *GoFile, funcManager *FunctionManager) *Function {
 	return &Function{
 		function:    f,
 		Name:        f.Name.Name,
 		pkg:         goFile.pkg,
 		goFile:      goFile,
-		funcManager: &goFile.pkg.FunctionManager,
+		funcManager: funcManager,
 	}
 }
 
@@ -132,7 +137,7 @@ func (method *Function) Parse() bool {
 	method.parseParameter(method.function.Type)
 	switch method.comment.funcType {
 	case CREATOR:
-		//当将来有Creator方法返回位interface是，此处的findStruct(true)需要修改
+		//当将来有Creator方法返回为interface是，此处的findStruct(true)需要修改
 		method.parseCreator()
 		returnStruct := method.Results[0].findStruct(true)
 		if returnStruct != nil {
@@ -163,13 +168,12 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 		}
 		field.parseType(param.Type, method.goFile)
 		//此处可能多个参数 a,b string的格式暂时仅处理一个；
-		if len(param.Names) > 1 {
-			log.Fatalf("function %s has more than one parameter", method.Name)
+		for _, name := range param.Names {
+			nfield := field
+			nfield.name = name.Name
+			method.Params = append(method.Params, &nfield)
+			break
 		}
-		if len(param.Names) > 0 {
-			field.name = param.Names[0].Name
-		}
-		method.Params = append(method.Params, &field)
 	}
 	if paramType.Results != nil {
 		for _, result := range paramType.Results.List {
@@ -189,7 +193,11 @@ func (method *Function) parseParameter(paramType *ast.FuncType) bool {
 
 func (method *Function) parseCreator() *Struct {
 	funcDecl := method.function
-	returnTypeList := funcDecl.Type.Results.List
+	results := funcDecl.Type.Results
+	if results == nil {
+		return nil
+	}
+	returnTypeList := results.List
 	if len(returnTypeList) != 1 {
 		log.Fatalf("creator %s should have one return value", method.Name)
 	}
@@ -208,13 +216,25 @@ func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb = strings.Builder{}
 	sb.WriteString("router.GET(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString(method.genTraceId(file))
 	sb.WriteString(receiverPrefix + method.Name + "(c,c.Writer,c.Request)\n")
 	sb.WriteString("})\n")
 	return sb.String()
 }
+func (method *Function) genTraceId(file *GenedFile) string {
+	file.getImport("github.com/rs/xid", "xid")
+	file.getImport("context", "context")
+	return `
+	var Request = c.Request
+	tid := xid.New().String()
+	c.Request = Request.WithContext(context.WithValue(Request.Context(), TraceIdNameInContext, tid))
+	`
+}
 
 func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
+	file.getImport("context", "context")
+	file.getImport("github.com/rs/xid", "xid")
 	var sb strings.Builder
 	sb.WriteString("router.POST(" + method.comment.Url + ", func(c *gin.Context) {\n")
 	var interfaceArgs string
@@ -230,30 +250,47 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 		sb.WriteString(name + ":=" + variable.generateCode(receiverPrefix, file) + "\n")
 		if !param.isPointer {
 			interfaceArgs += "&" + name + ","
+		} else {
+			interfaceArgs += name + ","
 		}
-		interfaceArgs += name + ","
 		realParams += "," + name
 	}
 
 	sb.WriteString(fmt.Sprintf("var request=[]interface{}{%s}\n", interfaceArgs))
 	sb.WriteString(`if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(200, map[string]interface{}{
+			"o": []any{&Error{Code: 4, Message: err.Error()}},
+			"c": 0,
+		})
 		return
 	}
+	var Request= c.Request;
+	tid := Request.Header.Get(TraceId)
+	if len(tid) <=0 {
+		tid = xid.New().String()
+	}
+	c.Request = Request.WithContext(context.WithValue(Request.Context(), TraceIdNameInContext, tid))
 	`)
 	var objString string
 	var objResult string
 	// 返回值仅有一个是Error；
 	if len(method.Results) == 2 {
 		objResult = "response,"
-		objString = "\"o\":response,"
+		objString = "\"o\":[]any{[code,response},"
+	} else {
+		objString = "\"o\":[]any{code},"
 	}
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
+	//${objResult} err:= ${receiverPrefix}${method.Name}(c${realParams}
 	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
+		var code any
+		if err.Code != 0 {
+			code = &Error{Code: int(err.Code), Message: err.Message}
+		}
 		c.JSON(200, map[string]interface{}{
 			%s
-			"c":    err.Code,
+			"c":    0,
 		})
 	`, objResult, receiverPrefix, method.Name, realParams, objString))
 	sb.WriteString("})\n") //end of router.POST
@@ -266,36 +303,33 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb strings.Builder
-	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url + ", func(c *gin.Context) {\n")
+	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url)
+	var server = method.pkg.Project.servers[method.comment.serverName]
+	methodUrl := method.comment.Url
+	for _, filter := range server.urlFilters {
+		filterUrl := filter.url
+		if len(filterUrl) > 0 && strings.Contains(methodUrl, filterUrl) {
+			sb.WriteString(",")
+			sb.WriteString(filter.genName)
+			break
+		}
+	}
+	sb.WriteString(", func(c *gin.Context) {\n")
 	var realParams string
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
 		var variableCode string
 		requestParam := method.Params[1]
-		variable := Variable{
-			isPointer: requestParam.isPointer,
-			class:     requestParam.findStruct(true),
-			name:      "request",
-		}
-		// 从receiver中查找是否有Creator方法
-		creator := method.funcManager.getCreator(variable.class)
-		if creator != nil {
-			variable.creator = creator
-			variable.isPointer = creator.Results[0].isPointer
-		} else {
-			variable.isPointer = true
-		}
-		if variable.isPointer {
-			variableCode = "request:=" + variable.generateCode(receiverPrefix, file) + "\n"
-		} else {
-			variableCode = "requestObj:=" + variable.generateCode(receiverPrefix, file) + "\n request:=&requestObj\n"
-		}
+		variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 		sb.WriteString(variableCode)
 
 		sb.WriteString(`
-		// 利用gin的自动绑定功能，将request绑定到request对象上；
+		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(200, Response{
+			Code: 4,
+			Message: "param error",
+			})
 			return
 		}
 		`)
@@ -308,6 +342,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		objResult = "response,"
 		objString = "Object:response,"
 	}
+	sb.WriteString(method.genTraceId(file))
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
 	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
@@ -318,11 +353,28 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		}
 		c.JSON(code, Response{
 			%s
-			Code:    err.Code,
+			Code:   int(err.Code),
 			Message: err.Message,
 		})
 	`, objResult, receiverPrefix, method.Name, realParams, objString))
 	sb.WriteString("})\n")
 
 	return sb.String()
+}
+
+// 生成调用本函数的代码
+func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) string {
+	var prefix string
+	if len(receiverPrefix) > 0 {
+		prefix = receiverPrefix
+	} else {
+		pkg := creator.pkg
+		impt := file.getImport(pkg.modPath, pkg.modName)
+		prefix = impt.Name + "."
+	}
+	var paramstr = make([]string, len(creator.Params))
+	for i, param := range creator.Params {
+		paramstr[i] = param.generateCode(prefix, file)
+	}
+	return fmt.Sprintf(prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")")
 }

@@ -17,8 +17,6 @@ func (config *RpcInterfaceConfig) dealValuePair(key, value string) {
 	switch key {
 	case "host":
 		config.Host = value
-	case "port":
-		config.Port = value
 	case "rpcClient":
 		config.IsRpcClient = true
 	default:
@@ -93,14 +91,21 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	// 	json.Unmarshal(res.O, &obj)
 	// 	return &obj, nil
 	// }
-	sb.WriteString("func (receiver *" + rpcInterface.structName + ") " + method.Name + "(")
+	file.getImport("context", "context")
+	sb.WriteString("func (receiver *" + rpcInterface.structName + ") " + method.Name + "(ctx context.Context,")
 	// 定义入参
 	var args []string
 	var params []string
-	for _, param := range method.Params {
+	// 默认第一个是context
+	for i, l := 1, len(method.Params); i < l; i++ {
+		param := method.Params[i]
 		info := param.name + " "
 		if param.isPointer {
 			info += "*"
+		}
+		if param.pkg != rpcInterface.Package.Project.rawPkg {
+			oneImport := file.getImport(param.pkg.modPath, param.pkg.modName)
+			info += oneImport.Name + "."
 		}
 		info += param.typeName
 		params = append(params, info)
@@ -117,8 +122,8 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 		info += "*"
 	}
 	typePkg := resultP0.pkg
-	oneImport := file.getImport(typePkg.modPath, typePkg.modName)
-	if oneImport.Name != "rawType" { //跳过系统原生类型
+	if typePkg != rpcInterface.Package.Project.rawPkg {
+		oneImport := file.getImport(typePkg.modPath, typePkg.modName)
 		info += oneImport.Name + "."
 	}
 	info += resultP0.typeName
@@ -136,16 +141,22 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	sb.WriteString("}\n")
 
 	// 生成调用代码
-	sb.WriteString("var res = receiver.client.SendRequest(")
+	sb.WriteString("var res = receiver.client.SendRequest(ctx,")
 	sb.WriteString(method.comment.Url)
-	sb.WriteString(", argument)\n")
-
-	sb.WriteString(`
+	file.getImport("errors", "errors")
+	file.getImport("context", "context")
+	sb.WriteString(`, argument)
 	if res.C != 0 {
-		return 
+		return nil, errors.New("failed to call`)
+	sb.WriteString(method.Name)
+	sb.WriteString(`")
 	}
-	json.Unmarshal(res.O, obj)
-	return
+	//无论object是否位指针，都需要取地址
+	json.Unmarshal(*res.O[1].(*json.RawMessage), &obj)
+	if res.O[0] != nil {
+		err = res.O[0].(error)
+	}
+	return obj, err
 }`)
 	file.getImport("encoding/json", "json")
 }
@@ -169,17 +180,25 @@ type RpcClient struct {
 	Prefix string
 }
 
-func (client *RpcClient) SendRequest(name string, array []interface{}) RpcResult {
+func (client *RpcClient) SendRequest(ctx context.Context, name string,  array []interface{}) RpcResult {
 	content, marError := json.Marshal(array)
 	if marError != nil {
 		fmt.Printf("%v\n", marError)
-		return RpcResult{C: 1, O: nil}
+		return RpcResult{C: 1, O: [2]interface{}{nil, json.RawMessage{}}}
 	}
-	resp, error := http.Post(client.Prefix+name, "", bytes.NewReader(content))
-	if error != nil {
-		fmt.Printf("%v\n", error)
+	req, err := http.NewRequest("POST", client.Prefix+name, bytes.NewReader(content))
+	var resp *http.Response
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("TraceId", ctx.Value("TRID").(string))
+		resp, err = http.DefaultClient.Do(req)
 	}
-	var res = RpcResult{}
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	}
+	var res = RpcResult{
+		O: [2]interface{}{&Error{}, &json.RawMessage{}},
+	}
 	dec := json.NewDecoder(resp.Body)
 	dec.Decode(&res)
 	return res

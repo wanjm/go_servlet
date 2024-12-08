@@ -20,6 +20,7 @@ type Field struct {
 	jsonName  string
 	comment   string
 	ownerInfo string //记录用于打印日志的信息
+	creators  map[*Struct]*Function
 }
 
 func (field *Field) parse(astField *ast.Field, goFile *GoFile) {
@@ -47,15 +48,21 @@ func (field *Field) parseComment(fieldType *ast.CommentGroup, goFile *GoFile) {
 func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
-	if _, ok := fieldType.(*ast.ArrayType); ok {
-		rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
-		class := rawPkg.getStruct("array", false)
-		if class != nil {
-			field.typeName = "array"
-			field.pkg = rawPkg
-			field.class = class
-			return
+	if arrayType, ok := fieldType.(*ast.ArrayType); ok {
+		field.typeName = "array"
+		field.pkg = goFile.pkg.Project.rawPkg
+
+		fakeFiled := Field{}
+		fakeFiled.parseType(arrayType.Elt, goFile)
+		array := ArrayType{}
+		if fakeFiled.class != nil {
+			array.OriginType = fakeFiled.class.(SchemaType)
+		} else {
+			array.pkg = fakeFiled.pkg
+			array.typeName = fakeFiled.typeName
 		}
+		field.class = &array
+		return
 	}
 	if innerType, ok := fieldType.(*ast.StarExpr); ok {
 		field.isPointer = true
@@ -67,15 +74,16 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 		structName = innerType.Sel.Name
 		pkgPath = goFile.getImportPath(modeName, field.ownerInfo)
 	}
-	// 原生类型，或者本package定义的结构体
+	// 原生类型，或者本package定义的结构体,array在前面已经处理了，所以此处肯定没有数组；
+	// 下面的class也可以直接使用
 	if innerType, ok := fieldType.(*ast.Ident); ok {
 		structName = innerType.Name
 		if structName[0] <= 'z' && structName[0] >= 'a' {
-			rawPkg := goFile.pkg.Project.getPackage(GolangRawType, false)
-			class := rawPkg.getStruct(structName, false)
+			project := goFile.pkg.Project
+			class := project.getStruct(structName, nil, nil)
 			if class != nil {
 				field.typeName = structName
-				field.pkg = rawPkg
+				field.pkg = project.rawPkg
 				field.class = class
 				return
 			}
@@ -94,12 +102,33 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	field.typeName = structName
 	// field.class = pkg.getStruct(structName, true)
 }
-func (field *Field) generateCode() string {
-	return "\n"
+func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string {
+	variable := Variable{
+		isPointer: field.isPointer,
+		class:     field.findStruct(true),
+		name:      "request",
+	}
+	// 从receiver中查找是否有Creator方法
+	creator := field.creators[variable.class]
+	if creator != nil {
+		variable.creator = creator
+		variable.isPointer = creator.Results[0].isPointer
+	} else {
+		variable.isPointer = true
+	}
+	res := variable.generateCode(receiverPrefix, file)
+	if field.isPointer == variable.isPointer {
+		return res
+	} else if variable.isPointer {
+		return "*" + res
+	} else {
+		return "getAddr(" + res + ")"
+	}
 }
 
 // 再给vairable赋值时，强行force为true；
 // 为什么有些是结构体，不过不强行却找不到：如外部结构体，由于本代码不会扫描到外部结构体，所以找不到；
+// 参考：parseType中的注释
 func (field *Field) findStruct(force bool) *Struct {
 	// 此处如果代码错误，会出现class为Interface，但是强转为Struct的情况，让程序报错
 	if field.class == nil {
