@@ -1,5 +1,5 @@
 ### 说明
-本项目是用来自动长生servlet通用代码， 包括servlet注册，prpc的客户端代码，服务端注册代码，filter注册代码，已经swagger文件等；具体参见 https://infi.cn/panel/?id=66e0e2f19513a50ea9a7d8cf
+本项目是用来自动产生servlet通用代码， 包括servlet注册，prpc的客户端代码，服务端注册代码，filter注册代码，已经swagger文件等；具体参见 https://infi.cn/panel/?id=66e0e2f19513a50ea9a7d8cf
 
 ### 使用说明
 1. 在运行go_gen目标工程目录； 会自动扫描文件，并在根目录生成gen目录
