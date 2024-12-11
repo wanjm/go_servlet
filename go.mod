@@ -1,4 +1,4 @@
-module gitlab.plaso.cn/webgen
+module github.com/wanjm/go_servlet
 
 go 1.21.3
 
