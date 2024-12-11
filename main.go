@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.plaso.cn/webgen/astinfo"
+	"github.com/wanjm/go_servlet/astinfo"
 )
 
 func main() {
