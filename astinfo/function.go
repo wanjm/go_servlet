@@ -17,11 +17,13 @@ type FunctionManager struct {
 	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
 	initiators []*DependNode         //初始化函数依赖关系
 	servlets   []*Function           //记录路由代码
+	postAction map[string]*Function  //记录后置操作
 }
 
 func createFunctionManager() FunctionManager {
 	return FunctionManager{
-		creators: make(map[*Struct]*Function),
+		creators:   make(map[*Struct]*Function),
+		postAction: make(map[string]*Function),
 	}
 }
 
@@ -132,6 +134,9 @@ func (method *Function) Parse() bool {
 	parseComment(method.function.Doc, &method.comment)
 	// 跳过不感兴趣的Func；
 	if method.comment.funcType == NOUSAGE {
+		if strings.HasPrefix(method.Name, "PostAction") {
+			method.funcManager.postAction[method.Name[10:]] = method
+		}
 		return true
 	}
 	method.parseParameter(method.function.Type)
