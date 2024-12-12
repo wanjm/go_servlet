@@ -327,7 +327,6 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		requestParam := method.Params[1]
 		variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 		sb.WriteString(variableCode)
-
 		sb.WriteString(`
 		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
@@ -350,18 +349,28 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	sb.WriteString(method.genTraceId(file))
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
-	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
-		var code=200;
+	sb.WriteString(fmt.Sprintf("%s err := %s%s(c%s)\n", objResult, receiverPrefix, method.Name, realParams))
+	//realParams后续考虑使用strings.Join()来处理；潜力基本挖光了
+	//此处后续考虑解析参数格式，然后添加正确的写入顺序
+	if postAction, ok := method.funcManager.postAction[method.Name]; ok {
+		sb.WriteString(fmt.Sprintf("%sPostAction%s(c%s,%serr)\n", receiverPrefix, postAction.Name, realParams, objResult))
+	}
+	sb.WriteString("var code=200;\n")
+	if method.comment.method == "GET" {
+		sb.WriteString(`
 		if err.Code==500 {
 			// 临时兼容health check;
 			code=500
 		}
+	`)
+	}
+	sb.WriteString(fmt.Sprintf(`
 		c.JSON(code, Response{
 			%s
 			Code:   int(err.Code),
 			Message: err.Message,
 		})
-	`, objResult, receiverPrefix, method.Name, realParams, objString))
+	`, objString))
 	sb.WriteString("})\n")
 
 	return sb.String()
