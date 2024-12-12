@@ -299,7 +299,13 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		if st, ok := field.class.(SchemaType); ok {
 			st.InitSchema(&schema, swagger)
 		} else {
-			fmt.Printf("ERROR: field %s is not a SchemaType\n", field.name)
+			// struct.field可能是一个结构体，且从来没有被初始化为struct过；
+			class := field.findStruct(false)
+			if class != nil {
+				class.InitSchema(&schema, swagger)
+			} else {
+				fmt.Printf("ERROR: field %s is not a SchemaType in %s\n", field.name, class.Name)
+			}
 		}
 		schemas[name] = schema
 	}
