@@ -109,12 +109,12 @@ func NewSwagger(project *Project) (result *Swagger) {
 	return
 }
 
-func initOperation() *spec.Operation {
+func initOperation(title string) *spec.Operation {
 	return &spec.Operation{
 		OperationProps: spec.OperationProps{
 			ID:           "",
 			Description:  "",
-			Summary:      "",
+			Summary:      title,
 			Security:     nil,
 			ExternalDocs: nil,
 			Deprecated:   false,
@@ -147,7 +147,7 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 			continue
 		}
 		pathItem := spec.PathItem{}
-		operation := initOperation()
+		operation := initOperation(servlet.comment.title)
 		var parameter []spec.Parameter
 		switch servlet.comment.method {
 		case POST, "":

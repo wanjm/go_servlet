@@ -58,6 +58,7 @@ const (
 type functionComment struct {
 	serverName   string // server group name
 	Url          string // url
+	title        string // 函数描述，供swagger使用
 	method       string // http方法，GET,POST，默认是POST
 	isDeprecated bool
 	funcType     int //函数类型，filter，servlet，websocket，prpc，initiator,creator
@@ -102,6 +103,8 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.security = strings.Split(value, ",")
 	case ConstMethod:
 		comment.method = strings.ToUpper(value)
+	case Title:
+		comment.title = strings.Trim(value, "\"")
 	default:
 		fmt.Printf("unknown key '%s' in function comment\n", key)
 	}

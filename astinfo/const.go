@@ -8,6 +8,7 @@ const (
 	INITIATOR
 	FILTER
 	WEBSOCKET
+	TITLE
 )
 
 const (
@@ -22,4 +23,5 @@ const (
 	Prpc        = "prpc"    //用于定义struct是prpc，所以默认groupName是prpc
 	Security    = "security"
 	ConstMethod = "method"
+	Title       = "title" //定义函数的描述描述，供swagger使用
 )
