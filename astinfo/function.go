@@ -356,7 +356,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	//realParams后续考虑使用strings.Join()来处理；潜力基本挖光了
 	//此处后续考虑解析参数格式，然后添加正确的写入顺序
 	if postAction, ok := method.funcManager.postAction[method.Name]; ok {
-		sb.WriteString(fmt.Sprintf("%sPostAction%s(c%s,%serr)\n", receiverPrefix, postAction.Name, realParams, objResult))
+		sb.WriteString(fmt.Sprintf("%s%s(c%s,%serr)\n", receiverPrefix, postAction.Name, realParams, objResult))
 	}
 	sb.WriteString("var code=200;\n")
 	if method.comment.method == "GET" {
