@@ -157,7 +157,8 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 		err = res.O[0].(error)
 	}
 	return obj, err
-}`)
+}
+	`)
 	file.getImport("encoding/json", "json")
 }
 
