@@ -115,21 +115,23 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	sb.WriteString(")(")
 	//定义返回值
 	var results []string
-	var resultP0 = method.Results[0]
+	if len(method.Results) >= 2 {
+		var resultP0 = method.Results[0]
 
-	info := "obj "
-	if resultP0.isPointer {
-		info += "*"
-	}
-	typePkg := resultP0.pkg
-	if typePkg != rpcInterface.Package.Project.rawPkg {
-		oneImport := file.getImport(typePkg.modPath, typePkg.modName)
-		info += oneImport.Name + "."
-	}
-	info += resultP0.typeName
+		info := "obj "
+		if resultP0.isPointer {
+			info += "*"
+		}
+		typePkg := resultP0.pkg
+		if typePkg != rpcInterface.Package.Project.rawPkg {
+			oneImport := file.getImport(typePkg.modPath, typePkg.modName)
+			info += oneImport.Name + "."
+		}
+		info += resultP0.typeName
 
-	results = append(results, info)
-	info = "err error"
+		results = append(results, info)
+	}
+	info := "err error"
 	results = append(results, info)
 	sb.WriteString(strings.Join(results, ","))
 	// 定义函数结束
@@ -147,20 +149,24 @@ func (rpcInterface *Interface) genRpcClientCode(file *GenedFile, method *Functio
 	file.getImport("context", "context")
 	sb.WriteString(`, argument)
 	if res.C != 0 {
-		return nil, errors.New("failed to call`)
+		err=errors.New("failed to call`)
 	sb.WriteString(method.Name)
 	sb.WriteString(`")
+		return
 	}
 	if res.O[0] != nil {
 		err = res.O[0].(error)
-	}else{
+		return 
+	}
+	`)
+	if len(method.Results) >= 2 {
+		sb.WriteString(`
 		//无论object是否位指针，都需要取地址
 		json.Unmarshal(*res.O[1].(*json.RawMessage), &obj)
+		`)
+		file.getImport("encoding/json", "json")
 	}
-	return obj, err
-}
-	`)
-	file.getImport("encoding/json", "json")
+	sb.WriteString("return\n}\n")
 }
 
 func GenerateRpcClientCode(file *GenedFile) string {
