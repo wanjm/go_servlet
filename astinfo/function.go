@@ -17,11 +17,13 @@ type FunctionManager struct {
 	creators   map[*Struct]*Function //纪录构建默认参数的代码, key是构建的struct
 	initiators []*DependNode         //初始化函数依赖关系
 	servlets   []*Function           //记录路由代码
+	postAction map[string]*Function  //记录后置操作
 }
 
 func createFunctionManager() FunctionManager {
 	return FunctionManager{
-		creators: make(map[*Struct]*Function),
+		creators:   make(map[*Struct]*Function),
+		postAction: make(map[string]*Function),
 	}
 }
 
@@ -56,6 +58,7 @@ const (
 type functionComment struct {
 	serverName   string // server group name
 	Url          string // url
+	title        string // 函数描述，供swagger使用
 	method       string // http方法，GET,POST，默认是POST
 	isDeprecated bool
 	funcType     int //函数类型，filter，servlet，websocket，prpc，initiator,creator
@@ -100,6 +103,8 @@ func (comment *functionComment) dealValuePair(key, value string) {
 		comment.security = strings.Split(value, ",")
 	case ConstMethod:
 		comment.method = strings.ToUpper(value)
+	case Title:
+		comment.title = strings.Trim(value, "\"")
 	default:
 		fmt.Printf("unknown key '%s' in function comment\n", key)
 	}
@@ -132,6 +137,9 @@ func (method *Function) Parse() bool {
 	parseComment(method.function.Doc, &method.comment)
 	// 跳过不感兴趣的Func；
 	if method.comment.funcType == NOUSAGE {
+		if strings.HasPrefix(method.Name, "PostAction") {
+			method.funcManager.postAction[method.Name[10:]] = method
+		}
 		return true
 	}
 	method.parseParameter(method.function.Type)
@@ -322,7 +330,6 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		requestParam := method.Params[1]
 		variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 		sb.WriteString(variableCode)
-
 		sb.WriteString(`
 		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
@@ -345,18 +352,28 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	sb.WriteString(method.genTraceId(file))
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
-	sb.WriteString(fmt.Sprintf(`%s err := %s%s(c%s)
-		var code=200;
+	sb.WriteString(fmt.Sprintf("%s err := %s%s(c%s)\n", objResult, receiverPrefix, method.Name, realParams))
+	//realParams后续考虑使用strings.Join()来处理；潜力基本挖光了
+	//此处后续考虑解析参数格式，然后添加正确的写入顺序
+	if postAction, ok := method.funcManager.postAction[method.Name]; ok {
+		sb.WriteString(fmt.Sprintf("%s%s(c%s,%serr)\n", receiverPrefix, postAction.Name, realParams, objResult))
+	}
+	sb.WriteString("var code=200;\n")
+	if method.comment.method == "GET" {
+		sb.WriteString(`
 		if err.Code==500 {
 			// 临时兼容health check;
 			code=500
 		}
+	`)
+	}
+	sb.WriteString(fmt.Sprintf(`
 		c.JSON(code, Response{
 			%s
 			Code:   int(err.Code),
 			Message: err.Message,
 		})
-	`, objResult, receiverPrefix, method.Name, realParams, objString))
+	`, objString))
 	sb.WriteString("})\n")
 
 	return sb.String()

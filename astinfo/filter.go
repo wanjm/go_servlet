@@ -34,6 +34,7 @@ func (filter *Filter) genFilterCode(file *GenedFile) {
 				Code:int(res.Code),
 				Message: res.Message,
 			})
+			c.Abort()
 		}
 	}
 	`)
