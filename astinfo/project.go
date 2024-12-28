@@ -438,7 +438,11 @@ func (Project *Project) genInitVariable(file *GenedFile) {
 	content.WriteString("func initVariable() {\n")
 	//保证按照依赖关系生成代码
 	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
-		return Project.initVariableFuns[i].level < Project.initVariableFuns[j].level
+		res := Project.initVariableFuns[i].level - Project.initVariableFuns[j].level
+		if res == 0 {
+			return Project.initVariableFuns[i].name < Project.initVariableFuns[j].name
+		}
+		return res < 0
 	})
 	for _, fun := range Project.initVariableFuns {
 		// fmt.Printf("generate code for initVariable %s level=%d\n", fun.name, fun.level)
