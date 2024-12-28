@@ -393,5 +393,5 @@ func (creator *Function) genCallCode(receiverPrefix string, file *GenedFile) str
 	for i, param := range creator.Params {
 		paramstr[i] = param.generateCode(prefix, file)
 	}
-	return fmt.Sprintf(prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")")
+	return prefix + creator.Name + "(" + strings.Join(paramstr, ",") + ")"
 }
