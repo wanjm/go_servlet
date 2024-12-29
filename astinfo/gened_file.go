@@ -42,9 +42,11 @@ func (file *GenedFile) save() {
 		content.WriteString(content1.String())
 	}
 	src := []byte(content.String())
-	src, err := format.Source(src)
+	src1, err := format.Source(src)
 	if err != nil {
-		fmt.Printf("Beautify code error, keep the raw code error: %s\n", err.Error())
+		fmt.Printf("find err in %s: %s\n", file.name, err.Error())
+	} else {
+		src = src1
 	}
 	osfile, err := os.Create(file.name + ".go")
 	if err != nil {

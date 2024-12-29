@@ -13,9 +13,11 @@ type SwaggerCfg struct {
 	UrlPrefix     string // url前缀, 正式环境和本地的路径不一样
 	Token         string
 }
+
+// 产生代码相关配置
 type Generation struct {
-	TraceKey    string
-	TraceKeyMod string
+	TraceKey    string // 用于定义traceKy的结构体名字；用于context中记录traceId
+	TraceKeyMod string // 用于定义traceKy的结构体所在的包名；
 }
 type Config struct {
 	SwaggerCfg SwaggerCfg

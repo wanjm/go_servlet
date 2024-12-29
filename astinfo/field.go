@@ -106,7 +106,7 @@ func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string 
 	variable := Variable{
 		isPointer: field.isPointer,
 		class:     field.findStruct(true),
-		name:      "request",
+		name:      field.name,
 	}
 	// 从receiver中查找是否有Creator方法
 	creator := field.creators[variable.class]

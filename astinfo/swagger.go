@@ -109,12 +109,12 @@ func NewSwagger(project *Project) (result *Swagger) {
 	return
 }
 
-func initOperation() *spec.Operation {
+func initOperation(title string) *spec.Operation {
 	return &spec.Operation{
 		OperationProps: spec.OperationProps{
 			ID:           "",
 			Description:  "",
-			Summary:      "",
+			Summary:      title,
 			Security:     nil,
 			ExternalDocs: nil,
 			Deprecated:   false,
@@ -147,7 +147,7 @@ func (swagger *Swagger) addServletFromFunctionManager(pkg *FunctionManager) {
 			continue
 		}
 		pathItem := spec.PathItem{}
-		operation := initOperation()
+		operation := initOperation(servlet.comment.title)
 		var parameter []spec.Parameter
 		switch servlet.comment.method {
 		case POST, "":
@@ -299,7 +299,13 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		if st, ok := field.class.(SchemaType); ok {
 			st.InitSchema(&schema, swagger)
 		} else {
-			fmt.Printf("ERROR: field %s is not a SchemaType\n", field.name)
+			// struct.field可能是一个结构体，且从来没有被初始化为struct过；
+			class1 := field.findStruct(true)
+			if class1 != nil {
+				class1.InitSchema(&schema, swagger)
+			} else {
+				fmt.Printf("ERROR: field %s is not a SchemaType in\n", field.name)
+			}
 		}
 		schemas[name] = schema
 	}
