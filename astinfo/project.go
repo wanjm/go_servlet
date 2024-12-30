@@ -267,7 +267,8 @@ func (project *Project) GenerateCode() {
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
-	file := createGenedFile("project")
+	// 内部定义的文件名使用_开始
+	file := createGenedFile("goservlet_project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
 	// project.generateInit(&content)
@@ -292,9 +293,7 @@ func (project *Project) GenerateCode() {
 
 	//生成变量初始化代码
 	initManager.genInitiator()
-	for _, pkg := range project.Package {
-		pkg.generateInitorCode()
-	}
+	initManager.genInitiatorCode()
 	filterFile := createGenedFile("filter")
 	for _, server := range project.servers {
 		server.getFilterCode(filterFile)
@@ -308,7 +307,6 @@ func (project *Project) GenerateCode() {
 		pkg.file.save()
 	}
 	project.genBasicCode(file)
-	project.genInitVariable(file)
 	project.genRpcClientVariable(file)
 	// project.genInitRoute(file)
 	project.genPrepare(file)
@@ -428,29 +426,6 @@ func (project *Project) addInitFuncs(rpcClientName string) {
 // initRpcClientFuns
 func (project *Project) addInitRpcClientFuns(rpcField *Field) {
 	project.initRpcField = append(project.initRpcField, rpcField)
-}
-
-func (Project *Project) genInitVariable(file *GenedFile) {
-	if len(Project.initVariableFuns) == 0 {
-		return
-	}
-	var content strings.Builder
-	content.WriteString("func initVariable() {\n")
-	//保证按照依赖关系生成代码
-	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
-		res := Project.initVariableFuns[i].level - Project.initVariableFuns[j].level
-		if res == 0 {
-			return Project.initVariableFuns[i].name < Project.initVariableFuns[j].name
-		}
-		return res < 0
-	})
-	for _, fun := range Project.initVariableFuns {
-		// fmt.Printf("generate code for initVariable %s level=%d\n", fun.name, fun.level)
-		content.WriteString(fun.name + "()\n")
-	}
-	content.WriteString("}\n")
-	file.addBuilder(&content)
-	Project.addInitFuncs("initVariable()")
 }
 
 func (Project *Project) genBasicCode(file *GenedFile) {
