@@ -343,10 +343,12 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		realParams = ",request"
 	}
 	var objString string
+	var objName string
 	var objResult string
 	// 返回值仅有一个是Error；
 	if len(method.Results) == 2 {
-		objResult = "response,"
+		objName = "response"
+		objResult = objName + ","
 		objString = "Object:response,"
 	}
 	// sb.WriteString(method.genTraceId(file))
@@ -366,6 +368,11 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			code=500
 		}
 	`)
+	}
+	if len(objName) > 0 {
+		var a = *method.Results[0]
+		a.name = objName
+		a.genCheckArrayNil("", file, &sb)
 	}
 	sb.WriteString(fmt.Sprintf(`
 		c.JSON(code, Response{

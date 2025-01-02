@@ -13,6 +13,7 @@ import (
 
 type SchemaType interface {
 	InitSchema(*spec.Schema, *Swagger)
+	GetTypename() string
 }
 
 func (r *RawType) InitSchema(schema *spec.Schema, swagger *Swagger) {
@@ -38,10 +39,10 @@ func (r *ArrayType) InitSchema(schema *spec.Schema, swagger *Swagger) {
 	schema.Items = &spec.SchemaOrArray{
 		Schema: &spec.Schema{},
 	}
-	if r.OriginType == nil {
-		r.OriginType = r.pkg.getStruct(r.typeName, false)
+	if r.class == nil {
+		r.class = r.pkg.getStruct(r.typeName, false)
 	}
-	r.OriginType.InitSchema(schema.Items.Schema, swagger)
+	r.class.InitSchema(schema.Items.Schema, swagger)
 }
 func (m *MapType) InitSchema(schema *spec.Schema, swagger *Swagger) {
 	schema.Type = []string{"object"}

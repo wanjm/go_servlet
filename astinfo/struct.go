@@ -107,6 +107,19 @@ func (class *Struct) GenerateCode(file *GenedFile) string {
 	}
 	return sb.String()
 }
+func (class *Struct) GetTypename() string {
+	return class.Name
+}
+func (class *Struct) generate0Slice(file *GenedFile) string {
+	impt := file.getImport(class.Package.modPath, class.Package.modName)
+	return "[]" + impt.Name + "." + class.Name + "{}"
+}
+
+func (class *Struct) genCheckNil(prefix string, file *GenedFile, content *strings.Builder) {
+	for _, field := range class.fields {
+		field.genCheckArrayNil(prefix, file, content)
+	}
+}
 
 // 该方法会用于生成变量的代码；
 // 1. 生成用于servet的类的对象；
