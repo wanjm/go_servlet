@@ -372,6 +372,9 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	if len(objName) > 0 {
 		var a = *method.Results[0]
 		a.name = objName
+		if a.isPointer {
+			panic("response should not be pointer in " + receiverPrefix + method.Name)
+		}
 		a.genCheckArrayNil("", file, &sb)
 	}
 	sb.WriteString(fmt.Sprintf(`
