@@ -64,6 +64,7 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 		}
 		array.pkg = fakeFiled.pkg
 		array.typeName = fakeFiled.typeName
+		array.isPointer = fakeFiled.isPointer
 		field.class = &array
 		return
 	}
@@ -159,6 +160,9 @@ func (field *Field) genCheckArrayNil(prefix string, file *GenedFile, content *st
 		arrayType := field.class.(*ArrayType)
 		content.WriteString("if " + prefix + field.name + " == nil {\n")
 		content.WriteString(prefix + field.name + "= []")
+		if arrayType.isPointer {
+			content.WriteString("*")
+		}
 		if arrayType.pkg == field.pkg.Project.rawPkg {
 			// 原始类型
 			content.WriteString(arrayType.typeName)

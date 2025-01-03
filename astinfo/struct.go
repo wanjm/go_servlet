@@ -112,7 +112,7 @@ func (class *Struct) GetTypename() string {
 }
 func (class *Struct) generate0Slice(file *GenedFile) string {
 	impt := file.getImport(class.Package.modPath, class.Package.modName)
-	return "[]" + impt.Name + "." + class.Name + "{}"
+	return impt.Name + "." + class.Name
 }
 
 func (class *Struct) genCheckNil(prefix string, file *GenedFile, content *strings.Builder) {
