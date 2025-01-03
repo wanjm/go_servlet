@@ -224,7 +224,7 @@ func (method *Function) GenerateWebsocket(file *GenedFile, receiverPrefix string
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	var sb = strings.Builder{}
 	sb.WriteString("router.GET(" + method.comment.Url + ", func(c *gin.Context) {\n")
-	sb.WriteString(method.genTraceId(file))
+	// sb.WriteString(method.genTraceId(file))
 	sb.WriteString(receiverPrefix + method.Name + "(c,c.Writer,c.Request)\n")
 	sb.WriteString("})\n")
 	return sb.String()
@@ -349,7 +349,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		objResult = "response,"
 		objString = "Object:response,"
 	}
-	sb.WriteString(method.genTraceId(file))
+	// sb.WriteString(method.genTraceId(file))
 	// 返回值有两个，一个是response，一个是Error；
 	// 代码暂不检查是否超过两个；
 	sb.WriteString(fmt.Sprintf("%s err := %s%s(c%s)\n", objResult, receiverPrefix, method.Name, realParams))
