@@ -311,14 +311,27 @@ func (project *Project) GenerateCode() {
 	// project.genInitRoute(file)
 	project.genPrepare(file)
 	file.save()
-	project.genExportTestCode()
+	project.genExportTestCode(initManager.sortedNodes)
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
 }
-func (project *Project) genExportTestCode() {
+func (project *Project) genExportTestCode(sortedNodes []*DependNode) {
 	file := createGenedFile("goservlet_export4test")
 	var content strings.Builder
-	content.WriteString("var InitVariable=initVariable\n")
+	var define strings.Builder
+	file.addBuilder(&define)
 	file.addBuilder(&content)
+	content.WriteString("func InitVariable(){\ninitVariable()\n")
+	for _, node := range sortedNodes {
+		variable := node.returnVariable
+		if variable != nil {
+			var oldname = variable.name
+			variable.name = strings.Replace(oldname, globalPrefix, "GlobalTesst", 1)
+			define.WriteString(variable.genDefinition(file))
+			define.WriteString("\n")
+			content.WriteString(fmt.Sprintf("%s = %s\n", variable.name, oldname))
+		}
+	}
+	content.WriteString("}\n")
 	file.save()
 }
 

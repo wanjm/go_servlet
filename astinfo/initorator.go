@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -57,6 +58,13 @@ func (manager *InitiatorManager) genInitiatorCode() {
 	file.addBuilder(&define)
 	file.addBuilder(&assign)
 	assign.WriteString("func initVariable() {\n")
+	sort.Slice(manager.sortedNodes, func(i, j int) bool {
+		var a = manager.sortedNodes[i].level - manager.sortedNodes[j].level
+		if a == 0 {
+			return manager.sortedNodes[i].function.Name < manager.sortedNodes[j].function.Name
+		}
+		return a < 0
+	})
 	for _, node := range manager.sortedNodes {
 		initor := node.function
 		variable := node.returnVariable
