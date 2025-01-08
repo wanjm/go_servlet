@@ -311,7 +311,15 @@ func (project *Project) GenerateCode() {
 	// project.genInitRoute(file)
 	project.genPrepare(file)
 	file.save()
+	project.genExportTestCode()
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
+}
+func (project *Project) genExportTestCode() {
+	file := createGenedFile("goservlet_export4test")
+	var content strings.Builder
+	content.WriteString("var InitVariable=initVariable\n")
+	file.addBuilder(&content)
+	file.save()
 }
 
 func (funcManager *Project) getDependNode(class *Struct, varName string) *DependNode {
