@@ -61,6 +61,9 @@ func (s *Struct) InitSchema(schema *spec.Schema, swagger *Swagger) {
 
 func (e *EmptyType) InitSchema(schema *spec.Schema, swagger *Swagger) {
 }
+func (e *EmptyType) GetTypename() string {
+	return "obj"
+}
 
 type Swagger struct {
 	swag    *spec.Swagger
@@ -225,7 +228,7 @@ func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
 	swaggerJson, _ := swagger.swag.MarshalJSON()
 	if cfg.Token == "" {
 		//如果不上传，则打印到控制台
-		fmt.Printf("swagger:%s\n", string(swaggerJson))
+		//fmt.Printf("swagger:%s\n", string(swaggerJson))
 		return ""
 	}
 	cmdMap := map[string]interface{}{
@@ -347,6 +350,7 @@ func (swagger *Swagger) getSwaggerResponse(objField *Field) spec.Response {
 	schema := spec.Schema{
 		SchemaProps: spec.SchemaProps{},
 	}
+
 	swagger.responseResult.InitSchema(&schema, swagger)
 	var result = spec.Response{
 		ResponseProps: spec.ResponseProps{
