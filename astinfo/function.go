@@ -305,12 +305,9 @@ func (method *Function) GenerateRpcServlet(file *GenedFile, receiverPrefix strin
 	return sb.String()
 }
 
-// 产生本方法即成到路由中去的方法
-// file: 表示在那个文件中产生；
-// receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
-func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
+// 产生postCall的部分代码
+func (method *Function) generateServletPostCall(file *GenedFile, sb *strings.Builder) {
 	file.getImport("github.com/gin-gonic/gin", "gin")
-	var sb strings.Builder
 	sb.WriteString("router." + method.comment.method + "(" + method.comment.Url)
 	var server = method.pkg.Project.servers[method.comment.serverName]
 	methodUrl := method.comment.Url
@@ -323,14 +320,27 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		}
 	}
 	sb.WriteString(", func(c *gin.Context) {\n")
+}
+
+// 产生本方法即成到路由中去的方法
+// file: 表示在那个文件中产生；
+// receiverPrefix用于记录调用函数的receiver，仅有当Method时才用到，否则为空；
+func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) string {
+	var sb strings.Builder
+	method.generateServletPostCall(file, &sb)
 	var realParams string
+	var rawServlet = false
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
 		var variableCode string
 		requestParam := method.Params[1]
-		variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
-		sb.WriteString(variableCode)
-		sb.WriteString(`
+		if requestParam.pkg.modPath == "net/http" {
+			realParams = ",c.Request"
+			rawServlet = true
+		} else {
+			variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
+			sb.WriteString(variableCode)
+			sb.WriteString(`
 		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
 			c.JSON(200, Response{
@@ -340,7 +350,8 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			return
 		}
 		`)
-		realParams = ",request"
+			realParams = ",request"
+		}
 	}
 	var objString string
 	var objName string
@@ -360,30 +371,34 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	if postAction, ok := method.funcManager.postAction[method.Name]; ok {
 		sb.WriteString(fmt.Sprintf("%s%s(c%s,%serr)\n", receiverPrefix, postAction.Name, realParams, objResult))
 	}
-	sb.WriteString("var code=200;\n")
-	if method.comment.method == "GET" {
-		sb.WriteString(`
+	if rawServlet {
+		sb.WriteString("c.JSON(int(err.Code), response)")
+	} else {
+		sb.WriteString("var code=200;\n")
+		if method.comment.method == "GET" {
+			sb.WriteString(`
 		if err.Code==500 {
 			// 临时兼容health check;
 			code=500
 		}
 	`)
-	}
-	if len(objName) > 0 {
-		var a = *method.Results[0]
-		a.name = objName
-		if a.isPointer {
-			panic("response should not be pointer in " + receiverPrefix + method.Name)
 		}
-		a.genCheckArrayNil("", file, &sb)
-	}
-	sb.WriteString(fmt.Sprintf(`
+		if len(objName) > 0 {
+			var a = *method.Results[0]
+			a.name = objName
+			if a.isPointer {
+				panic("response should not be pointer in " + receiverPrefix + method.Name)
+			}
+			a.genCheckArrayNil("", file, &sb)
+		}
+		sb.WriteString(fmt.Sprintf(`
 		c.JSON(code, Response{
 			%s
 			Code:   int(err.Code),
 			Message: err.Message,
 		})
 	`, objString))
+	}
 	sb.WriteString("})\n")
 
 	return sb.String()

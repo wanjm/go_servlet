@@ -127,7 +127,7 @@ func (project *Project) addServer(name string) {
 		fmt.Printf("WARN: server name should not empty\n")
 	}
 	if _, ok := project.servers[name]; !ok {
-		project.servers[name] = &server{name: name}
+		project.servers[name] = &server{name: name, urlFilters: make(map[string]*Filter)}
 		return
 	}
 }
