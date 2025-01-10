@@ -335,6 +335,9 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		var variableCode string
 		requestParam := method.Params[1]
 		if requestParam.pkg.modPath == "net/http" {
+			// 此处是临时添加的解决第三方回调的问题；
+			// 具体如何识别，1. 参数直接使用http.Request；
+			// 2. 返回值改为basic.HTTPError.(Code表示http头的code，response就是完整的报文体) 这个更好。这样第一条就可以是根据需要传入
 			realParams = ",c.Request"
 			rawServlet = true
 		} else {
