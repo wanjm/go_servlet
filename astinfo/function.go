@@ -333,12 +333,27 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 	//  有request请求，需要解析request，有些情况下，服务端不需要request；
 	if len(method.Params) >= 2 {
 		var variableCode string
-		requestParam := method.Params[1]
+		methodUrl := strings.Trim(method.comment.Url, "\"")
+		paramIndex := 1
+		requestParam := method.Params[paramIndex]
+		realParams += "," + requestParam.name
+		if strings.Contains(methodUrl, ":") {
+			variableCode = requestParam.name + ":=" + requestParam.generateCode(receiverPrefix, file) + "\n"
+			sb.WriteString(variableCode)
+			names := strings.Split(methodUrl, "/")
+			for _, name := range names {
+				if strings.Contains(name, ":") {
+					sb.WriteString(fmt.Sprintf("%s.%s=c.Param(\"%s\")\n", requestParam.name, name[1:], name[1:]))
+				}
+			}
+			paramIndex = 2
+		}
+		requestParam = method.Params[paramIndex]
 		if requestParam.pkg.modPath == "net/http" {
 			// 此处是临时添加的解决第三方回调的问题；
 			// 具体如何识别，1. 参数直接使用http.Request；
 			// 2. 返回值改为basic.HTTPError.(Code表示http头的code，response就是完整的报文体) 这个更好。这样第一条就可以是根据需要传入
-			realParams = ",c.Request"
+			realParams += ",c.Request"
 			rawServlet = true
 		} else {
 			variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
@@ -353,7 +368,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			return
 		}
 		`)
-			realParams = ",request"
+			realParams += ",request"
 		}
 	}
 	var objString string
