@@ -335,9 +335,9 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 		var variableCode string
 		methodUrl := strings.Trim(method.comment.Url, "\"")
 		paramIndex := 1
-		requestParam := method.Params[paramIndex]
-		realParams += "," + requestParam.name
 		if strings.Contains(methodUrl, ":") {
+			requestParam := method.Params[paramIndex]
+			realParams += "," + requestParam.name
 			variableCode = requestParam.name + ":=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 			sb.WriteString(variableCode)
 			names := strings.Split(methodUrl, "/")
@@ -348,7 +348,7 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			}
 			paramIndex = 2
 		}
-		requestParam = method.Params[paramIndex]
+		requestParam := method.Params[paramIndex]
 		if requestParam.pkg.modPath == "net/http" {
 			// 此处是临时添加的解决第三方回调的问题；
 			// 具体如何识别，1. 参数直接使用http.Request；

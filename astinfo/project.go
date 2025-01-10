@@ -541,7 +541,7 @@ func (Project *Project) genPrepare(file *GenedFile) {
 		content.WriteString("filters: gin.HandlersChain{\n")
 		for _, filter := range server.urlFilters {
 			filterUrl := filter.url
-			if len(filterUrl) == 0 || strings.Contains(filterUrl, "{") {
+			if len(filterUrl) == 0 {
 				content.WriteString(filter.genName)
 				content.WriteString(",\n")
 			}
