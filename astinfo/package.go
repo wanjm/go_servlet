@@ -102,16 +102,14 @@ func (pkg *Package) getStruct(name string, create bool) *Struct {
 // 生成initiator的代码
 // 定义initorator的函数，在此被调用，并保存在全局变量中；
 // 初始化函数可以自带参数，这些参数是由其他initiator生成的，所以initiator之间是有依赖关系的，需要生成代码时，进行排序，保证生成顺序的正确性；
-func (pkg *Package) generateInitorCode() {
+func (pkg *Package) generateInitorCode(manager *InitiatorManager, file *GenedFile) {
 	if len(pkg.initiators) == 0 {
 		return
 	}
 	define := strings.Builder{}
 	assign := strings.Builder{}
-	pkg.file.addBuilder(&define)
-	pkg.file.addBuilder(&assign)
-	initorName := pkg.getInitiatorFunctionName()
-	assign.WriteString("func " + initorName + "(){\n")
+	file.addBuilder(&define)
+	file.addBuilder(&assign)
 	var level = 0
 	for _, node := range pkg.initiators {
 		if node.level > level {
@@ -120,7 +118,7 @@ func (pkg *Package) generateInitorCode() {
 		initor := node.function
 		variable := node.returnVariable
 		if variable != nil {
-			define.WriteString(variable.genDefinition(pkg.file))
+			define.WriteString(variable.genDefinition(file))
 			define.WriteString("\n")
 			assign.WriteString(variable.name)
 			assign.WriteString("=")
@@ -129,7 +127,6 @@ func (pkg *Package) generateInitorCode() {
 		assign.WriteString("\n")
 	}
 	assign.WriteString("}\n")
-	pkg.Project.addInitVariableFunc(initorName, level)
 }
 
 func (pkg *Package) getInitiatorFunctionName() string {

@@ -28,7 +28,7 @@ func (field *Field) parse(astField *ast.Field, goFile *GoFile) {
 	field.parseComment(astField.Comment, goFile)
 	field.parseType(astField.Type, goFile)
 }
-func (field *Field) parseTag(fieldType *ast.BasicLit, goFile *GoFile) {
+func (field *Field) parseTag(fieldType *ast.BasicLit, _ *GoFile) {
 	if fieldType != nil {
 		tag := strings.Trim(fieldType.Value, "`\"")
 		tagList := strings.Split(tag, " ")
@@ -40,7 +40,7 @@ func (field *Field) parseTag(fieldType *ast.BasicLit, goFile *GoFile) {
 		}
 	}
 }
-func (field *Field) parseComment(fieldType *ast.CommentGroup, goFile *GoFile) {
+func (field *Field) parseComment(fieldType *ast.CommentGroup, _ *GoFile) {
 	if fieldType != nil && len(fieldType.List) > 0 {
 		field.comment = strings.Trim(fieldType.List[0].Text, "\" /")
 	}
@@ -49,6 +49,10 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
 	// 内置slice类型；
 	if arrayType, ok := fieldType.(*ast.ArrayType); ok {
+		// 内置array类型
+		// field的pkg指向原始类型；
+		// field的class只想ArrayType;
+		// ArrayType中的pkg，typeName，class指向具体的类型
 		field.typeName = "array"
 		field.pkg = goFile.pkg.Project.rawPkg
 
@@ -56,11 +60,11 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 		fakeFiled.parseType(arrayType.Elt, goFile)
 		array := ArrayType{}
 		if fakeFiled.class != nil {
-			array.OriginType = fakeFiled.class.(SchemaType)
-		} else {
-			array.pkg = fakeFiled.pkg
-			array.typeName = fakeFiled.typeName
+			array.class = fakeFiled.class.(SchemaType)
 		}
+		array.pkg = fakeFiled.pkg
+		array.typeName = fakeFiled.typeName
+		array.isPointer = fakeFiled.isPointer
 		field.class = &array
 		return
 	}
@@ -148,4 +152,37 @@ func (field *Field) findInterface() *Interface {
 		return a
 	}
 	return nil
+}
+
+// prefix 为前缀，用于生成代码时，是自己带.的
+func (field *Field) genCheckArrayNil(prefix string, file *GenedFile, content *strings.Builder) {
+	if field.typeName == "array" {
+		arrayType := field.class.(*ArrayType)
+		content.WriteString("if " + prefix + field.name + " == nil {\n")
+		content.WriteString(prefix + field.name + "= []")
+		if arrayType.isPointer {
+			content.WriteString("*")
+		}
+		if arrayType.pkg == field.pkg.Project.rawPkg {
+			// 原始类型
+			content.WriteString(arrayType.typeName)
+		} else {
+			class := arrayType.findStruct(true)
+			content.WriteString(class.generate0Slice(file))
+
+		}
+		content.WriteString("{}\n}\n")
+	} else if field.pkg == field.pkg.Project.rawPkg {
+
+	} else {
+		class := field.findStruct(true)
+		if field.isPointer {
+			// 支持指针类型，但是仅支持原始类型，type alias后暂时不支持；
+			content.WriteString("if " + prefix + field.name + "!= nil {\n")
+		}
+		class.genCheckNil(prefix+field.name+".", file, content)
+		if field.isPointer {
+			content.WriteString("}\n")
+		}
+	}
 }

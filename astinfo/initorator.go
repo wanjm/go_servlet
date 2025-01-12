@@ -2,6 +2,7 @@ package astinfo
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -20,6 +21,7 @@ type DependNode struct {
 type InitiatorManager struct {
 	root        DependNode
 	dependNodes []*DependNode
+	sortedNodes []*DependNode
 	// initiatorMap map[*Struct]*Initiators //便于注入时根据类型存照
 	project *Project
 }
@@ -48,6 +50,37 @@ func (manager *InitiatorManager) genInitiator() {
 		panic("can't find paramter for initiator")
 	}
 }
+
+func (manager *InitiatorManager) genInitiatorCode() {
+	var file *GenedFile = createGenedFile("goservlet_initiator")
+	define := strings.Builder{}
+	assign := strings.Builder{}
+	file.addBuilder(&define)
+	file.addBuilder(&assign)
+	assign.WriteString("func initVariable() {\n")
+	sort.Slice(manager.sortedNodes, func(i, j int) bool {
+		var a = manager.sortedNodes[i].level - manager.sortedNodes[j].level
+		if a == 0 {
+			return manager.sortedNodes[i].function.Name < manager.sortedNodes[j].function.Name
+		}
+		return a < 0
+	})
+	for _, node := range manager.sortedNodes {
+		initor := node.function
+		variable := node.returnVariable
+		if variable != nil {
+			define.WriteString(variable.genDefinition(file))
+			define.WriteString("\n")
+			assign.WriteString(variable.name)
+			assign.WriteString("=")
+		}
+		assign.WriteString(initor.genCallCode("", file))
+		assign.WriteString("\n")
+	}
+	assign.WriteString("}\n")
+	file.save()
+	manager.project.addInitFuncs("initVariable()")
+}
 func (manager *InitiatorManager) checkReady(node *DependNode) bool {
 	param := node.function.Params
 	project := manager.project
@@ -63,6 +96,7 @@ func (manager *InitiatorManager) checkReady(node *DependNode) bool {
 		}
 	}
 	node.level = level + 1
+	manager.sortedNodes = append(manager.sortedNodes, node)
 	manager.genVariable(node)
 	return true
 }
