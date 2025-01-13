@@ -526,12 +526,15 @@ var servers map[string]*server
 func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
 	// file.getImport("sync/atomic", "atomic")
-	content.WriteString(`
-	func prepare() {
-	`)
+	content.WriteString("func Prepare() {\n")
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
 	}
+	content.WriteString(`
+	}	
+	func prepare() {
+		Prepare()
+	`)
 	content.WriteString("servers = make(map[string]*server)\n")
 	var servers = getSortedKey(Project.servers)
 	for _, serverName := range servers {
