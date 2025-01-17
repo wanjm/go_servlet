@@ -127,7 +127,7 @@ func (project *Project) addServer(name string) {
 		fmt.Printf("WARN: server name should not empty\n")
 	}
 	if _, ok := project.servers[name]; !ok {
-		project.servers[name] = &server{name: name}
+		project.servers[name] = &server{name: name, urlFilters: make(map[string]*Filter)}
 		return
 	}
 }
@@ -267,7 +267,8 @@ func (project *Project) GenerateCode() {
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
-	file := createGenedFile("project")
+	// 内部定义的文件名使用_开始
+	file := createGenedFile("goservlet_project")
 	file.getImport("github.com/gin-gonic/gin", "gin")
 	os.Chdir("gen")
 	// project.generateInit(&content)
@@ -292,9 +293,7 @@ func (project *Project) GenerateCode() {
 
 	//生成变量初始化代码
 	initManager.genInitiator()
-	for _, pkg := range project.Package {
-		pkg.generateInitorCode()
-	}
+	initManager.genInitiatorCode()
 	filterFile := createGenedFile("filter")
 	for _, server := range project.servers {
 		server.getFilterCode(filterFile)
@@ -308,12 +307,32 @@ func (project *Project) GenerateCode() {
 		pkg.file.save()
 	}
 	project.genBasicCode(file)
-	project.genInitVariable(file)
 	project.genRpcClientVariable(file)
 	// project.genInitRoute(file)
 	project.genPrepare(file)
 	file.save()
+	project.genExportTestCode(initManager.sortedNodes)
 	NewSwagger(project).GenerateCode(&project.cfg.SwaggerCfg)
+}
+func (project *Project) genExportTestCode(sortedNodes []*DependNode) {
+	file := createGenedFile("goservlet_export4test")
+	var content strings.Builder
+	var define strings.Builder
+	file.addBuilder(&define)
+	file.addBuilder(&content)
+	content.WriteString("func InitVariable(){\ninitVariable()\n")
+	for _, node := range sortedNodes {
+		variable := node.returnVariable
+		if variable != nil {
+			var oldname = variable.name
+			variable.name = strings.Replace(oldname, globalPrefix, "GlobalTesst", 1)
+			define.WriteString(variable.genDefinition(file))
+			define.WriteString("\n")
+			content.WriteString(fmt.Sprintf("%s = %s\n", variable.name, oldname))
+		}
+	}
+	content.WriteString("}\n")
+	file.save()
 }
 
 func (funcManager *Project) getDependNode(class *Struct, varName string) *DependNode {
@@ -346,6 +365,10 @@ func (funcManager *Project) genRpcClientVariable(file *GenedFile) {
 
 	var content strings.Builder
 	content.WriteString("func initRpcClient() {\n//初始化rpc客户端,由于Prefix，是Host可以通过变量配置，所以需要写到basic中，因为本程序默认可见basic,basic可见性由filter引入，否则需要增加代码复杂度，暂时不支持，后续通过扫描变量的方式添加\n")
+	sort.Slice(funcManager.initRpcField, func(i, j int) bool {
+		//按照client的名字升序排列
+		return funcManager.initRpcField[i].name < funcManager.initRpcField[j].name
+	})
 	for _, field := range funcManager.initRpcField {
 		impt := file.getImport(field.pkg.modPath, field.pkg.modName)
 		cfg := field.pkg.getInterface(field.typeName, false).config
@@ -430,25 +453,6 @@ func (project *Project) addInitRpcClientFuns(rpcField *Field) {
 	project.initRpcField = append(project.initRpcField, rpcField)
 }
 
-func (Project *Project) genInitVariable(file *GenedFile) {
-	if len(Project.initVariableFuns) == 0 {
-		return
-	}
-	var content strings.Builder
-	content.WriteString("func initVariable() {\n")
-	//保证按照依赖关系生成代码
-	sort.Slice(Project.initVariableFuns, func(i, j int) bool {
-		return Project.initVariableFuns[i].level < Project.initVariableFuns[j].level
-	})
-	for _, fun := range Project.initVariableFuns {
-		// fmt.Printf("generate code for initVariable %s level=%d\n", fun.name, fun.level)
-		content.WriteString(fun.name + "()\n")
-	}
-	content.WriteString("}\n")
-	file.addBuilder(&content)
-	Project.addInitFuncs("initVariable()")
-}
-
 func (Project *Project) genBasicCode(file *GenedFile) {
 	file.getImport("github.com/gin-contrib/cors", "cors")
 	file.getImport("sync", "sync")
@@ -522,12 +526,15 @@ var servers map[string]*server
 func (Project *Project) genPrepare(file *GenedFile) {
 	var content strings.Builder
 	// file.getImport("sync/atomic", "atomic")
-	content.WriteString(`
-	func prepare() {
-	`)
+	content.WriteString("func Prepare() {\n")
 	for _, fun := range Project.initFuncs {
 		content.WriteString(fun + "\n")
 	}
+	content.WriteString(`
+	}	
+	func prepare() {
+		Prepare()
+	`)
 	content.WriteString("servers = make(map[string]*server)\n")
 	var servers = getSortedKey(Project.servers)
 	for _, serverName := range servers {

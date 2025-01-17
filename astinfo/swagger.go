@@ -13,6 +13,7 @@ import (
 
 type SchemaType interface {
 	InitSchema(*spec.Schema, *Swagger)
+	GetTypename() string
 }
 
 func (r *RawType) InitSchema(schema *spec.Schema, swagger *Swagger) {
@@ -38,10 +39,10 @@ func (r *ArrayType) InitSchema(schema *spec.Schema, swagger *Swagger) {
 	schema.Items = &spec.SchemaOrArray{
 		Schema: &spec.Schema{},
 	}
-	if r.OriginType == nil {
-		r.OriginType = r.pkg.getStruct(r.typeName, false)
+	if r.class == nil {
+		r.class = r.pkg.getStruct(r.typeName, false)
 	}
-	r.OriginType.InitSchema(schema.Items.Schema, swagger)
+	r.class.InitSchema(schema.Items.Schema, swagger)
 }
 func (m *MapType) InitSchema(schema *spec.Schema, swagger *Swagger) {
 	schema.Type = []string{"object"}
@@ -59,6 +60,9 @@ func (s *Struct) InitSchema(schema *spec.Schema, swagger *Swagger) {
 }
 
 func (e *EmptyType) InitSchema(schema *spec.Schema, swagger *Swagger) {
+}
+func (e *EmptyType) GetTypename() string {
+	return "obj"
 }
 
 type Swagger struct {
@@ -224,7 +228,7 @@ func (swagger *Swagger) GenerateCode(cfg *SwaggerCfg) string {
 	swaggerJson, _ := swagger.swag.MarshalJSON()
 	if cfg.Token == "" {
 		//如果不上传，则打印到控制台
-		fmt.Printf("swagger:%s\n", string(swaggerJson))
+		//fmt.Printf("swagger:%s\n", string(swaggerJson))
 		return ""
 	}
 	cmdMap := map[string]interface{}{
@@ -300,11 +304,11 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 			st.InitSchema(&schema, swagger)
 		} else {
 			// struct.field可能是一个结构体，且从来没有被初始化为struct过；
-			class := field.findStruct(false)
-			if class != nil {
-				class.InitSchema(&schema, swagger)
+			class1 := field.findStruct(true)
+			if class1 != nil {
+				class1.InitSchema(&schema, swagger)
 			} else {
-				fmt.Printf("ERROR: field %s is not a SchemaType in %s\n", field.name, class.Name)
+				fmt.Printf("ERROR: field %s is not a SchemaType in\n", field.name)
 			}
 		}
 		schemas[name] = schema
@@ -346,6 +350,7 @@ func (swagger *Swagger) getSwaggerResponse(objField *Field) spec.Response {
 	schema := spec.Schema{
 		SchemaProps: spec.SchemaProps{},
 	}
+
 	swagger.responseResult.InitSchema(&schema, swagger)
 	var result = spec.Response{
 		ResponseProps: spec.ResponseProps{
