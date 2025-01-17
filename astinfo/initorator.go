@@ -3,6 +3,7 @@ package astinfo
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -23,7 +24,8 @@ type InitiatorManager struct {
 	dependNodes []*DependNode
 	sortedNodes []*DependNode
 	// initiatorMap map[*Struct]*Initiators //便于注入时根据类型存照
-	project *Project
+	project     *Project
+	noNameIndex int
 }
 
 // 1. 收集所有的initiator函数到一个数组中；
@@ -136,8 +138,8 @@ func (manager *InitiatorManager) genVariable(dependNode *DependNode) {
 	//  := initor.Results[0]
 	name := result.name
 	if len(name) == 0 {
-		name = strings.ReplaceAll(result.pkg.modPath, ".", "_")
-		name = strings.ReplaceAll(name, "/", "_")
+		name = "n" + strconv.Itoa(manager.noNameIndex)
+		manager.noNameIndex++
 	}
 	name = globalPrefix + name
 	variable := Variable{
