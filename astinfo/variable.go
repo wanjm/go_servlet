@@ -2,7 +2,6 @@ package astinfo
 
 import (
 	"fmt"
-	"strings"
 )
 
 // 定义了一个creator的返回值，用于创建变量；
@@ -40,28 +39,12 @@ func (variable *Variable) generateCode(receiverPrefix string, file *GenedFile) s
 	if creator != nil {
 		return creator.genCallCode(receiverPrefix, file)
 	}
-
-	impt := file.getImport(variable.class.Package.modPath, variable.class.Package.modName)
-	// 生成结构中每个属性的代码
-	fieldsValue := make([]string, 0, len(variable.class.fields))
-	for _, field := range variable.class.fields {
-		if field.pkg == field.pkg.Project.rawPkg {
-			continue
-		}
-		childVar := Variable{
-			class:     field.findStruct(true),
-			isPointer: field.isPointer,
-			name:      field.name,
-		}
-		// 由于不是每个对象都塞进来，所以只用用append
-		fieldsValue = append(fieldsValue, field.name+":"+childVar.generateCode("", file))
-	}
-	body := strings.Join(fieldsValue, ",\n")
 	objPrefix := ""
 	if variable.isPointer {
 		objPrefix = "&"
 	}
-	return fmt.Sprintf("%s%s.%s{%s}", objPrefix, impt.Name, variable.class.Name, body)
+	return objPrefix + variable.class.generateConstructCode(file)
+
 }
 
 // 返回值无\n

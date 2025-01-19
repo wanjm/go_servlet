@@ -10,6 +10,24 @@ const (
 	TypeStruct
 )
 
+type FieldComment struct {
+	defaultValue string //记录该属性的默认值，在struct的field中有使用；
+	// isRequired   bool   //记录该字段是否必须赋值，区别于gin的默认处理方法，必传表示在报文中必须存在
+	validString string //校验变量是否符合要求的代码； $>10 && $<11
+	comment     string
+}
+
+func (comment *FieldComment) dealValuePair(key, value string) {
+	switch key {
+	case "default":
+		comment.defaultValue = value
+	case "valid":
+		comment.validString = value
+	default:
+		comment.comment = key
+	}
+}
+
 // 定义了Struct中的一个个属性, 也用于函数的参数和返回值
 type Field struct {
 	class     interface{}
@@ -18,9 +36,9 @@ type Field struct {
 	isPointer bool
 	name      string
 	jsonName  string
-	comment   string
 	ownerInfo string //记录用于打印日志的信息
 	creators  map[*Struct]*Function
+	comment   FieldComment
 }
 
 func (field *Field) parse(astField *ast.Field, goFile *GoFile) {
@@ -41,9 +59,12 @@ func (field *Field) parseTag(fieldType *ast.BasicLit, _ *GoFile) {
 	}
 }
 func (field *Field) parseComment(fieldType *ast.CommentGroup, _ *GoFile) {
-	if fieldType != nil && len(fieldType.List) > 0 {
-		field.comment = strings.Trim(fieldType.List[0].Text, "\" /")
+	if fieldType == nil || len(fieldType.List) <= 0 {
+		return
 	}
+	content := strings.Trim(fieldType.List[0].Text, "\" /")
+	// field.comment =
+	parseValidComment(content, &field.comment)
 }
 func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	var modeName, structName string
@@ -106,24 +127,37 @@ func (field *Field) parseType(fieldType ast.Expr, goFile *GoFile) {
 	field.typeName = structName
 	// field.class = pkg.getStruct(structName, true)
 }
+
+// 产生给本变量赋值的方法， 方式等号的右边；
+// 给结构体赋值，则是在冒号的后面
+// field= *hello;  field=hello , field=getAddr(hello);
+// 当field是普通类型，且没有默认值时，返回""; 当前应该只有构建结构体时才遇到。如果字符串的值是“”，此处返回"\"\""
 func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string {
-	variable := Variable{
-		isPointer: field.isPointer,
-		class:     field.findStruct(true),
-		name:      field.name,
-	}
-	// 从receiver中查找是否有Creator方法
-	creator := field.creators[variable.class]
-	if creator != nil {
-		variable.creator = creator
-		variable.isPointer = creator.Results[0].isPointer
+	var res string
+	var isVariablePointer = false
+	if field.pkg == field.pkg.Project.rawPkg {
+		// rawPackage 由于是原始值，所以variable都不是pointer
+		res = field.comment.defaultValue
 	} else {
-		variable.isPointer = true
+		variable := Variable{
+			isPointer: field.isPointer,
+			class:     field.findStruct(true),
+			name:      field.name,
+		}
+		// 从receiver中查找是否有Creator方法
+		creator := field.creators[variable.class]
+		if creator != nil {
+			variable.creator = creator
+			variable.isPointer = creator.Results[0].isPointer
+		} else {
+			variable.isPointer = true
+		}
+		res = variable.generateCode(receiverPrefix, file)
+		isVariablePointer = variable.isPointer
 	}
-	res := variable.generateCode(receiverPrefix, file)
-	if field.isPointer == variable.isPointer {
+	if field.isPointer == isVariablePointer {
 		return res
-	} else if variable.isPointer {
+	} else if isVariablePointer {
 		return "*" + res
 	} else {
 		return "getAddr(" + res + ")"

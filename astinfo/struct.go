@@ -1,6 +1,7 @@
 package astinfo
 
 import (
+	"fmt"
 	"go/ast"
 	"strings"
 
@@ -79,6 +80,20 @@ func (class *Struct) parseComment(doc *ast.CommentGroup) {
 	if class.comment.serverType != NOUSAGE {
 		class.Package.Project.addServer(class.comment.groupName)
 	}
+}
+
+func (class *Struct) generateConstructCode(file *GenedFile) string {
+	impt := file.getImport(class.Package.modPath, class.Package.modName)
+	// 生成结构中每个属性的代码
+	fieldsValue := make([]string, 0, len(class.fields))
+	for _, field := range class.fields {
+		construct := field.generateCode("", file)
+		if construct != "" {
+			fieldsValue = append(fieldsValue, field.name+":"+construct)
+		}
+	}
+	body := strings.Join(fieldsValue, ",\n")
+	return fmt.Sprintf("%s.%s{%s}", impt.Name, class.Name, body)
 }
 
 // 注意跟变量注入区分开来

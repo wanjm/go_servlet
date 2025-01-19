@@ -295,9 +295,10 @@ func (swagger *Swagger) getRefOfStruct(class *Struct) *spec.Ref {
 		if len(name) == 0 {
 			name = firstLower(field.name)
 		}
+
 		schema := spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: field.comment,
+				Description: field.comment.comment,
 			},
 		}
 		if st, ok := field.class.(SchemaType); ok {
