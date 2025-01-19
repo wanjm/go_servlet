@@ -54,5 +54,3 @@ type HelloResponse struct {
 4. 完成全局变量的注入
 5. 完成不存在的全局变量的注入方法：
 
-# 2024-9-7
-1. 完成initorator的初始化的函数调用，并复制给变量
