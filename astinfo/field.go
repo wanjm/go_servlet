@@ -62,7 +62,7 @@ func (field *Field) parseComment(fieldType *ast.CommentGroup, _ *GoFile) {
 	if fieldType == nil || len(fieldType.List) <= 0 {
 		return
 	}
-	content := strings.Trim(fieldType.List[0].Text, "\" /")
+	content := strings.Trim(fieldType.List[0].Text, " /")
 	// field.comment =
 	parseValidComment(content, &field.comment)
 }
@@ -138,6 +138,9 @@ func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string 
 	if field.pkg == field.pkg.Project.rawPkg {
 		// rawPackage 由于是原始值，所以variable都不是pointer
 		res = field.comment.defaultValue
+		if res == "" {
+			return res
+		}
 	} else {
 		variable := Variable{
 			isPointer: field.isPointer,
@@ -149,8 +152,6 @@ func (field *Field) generateCode(receiverPrefix string, file *GenedFile) string 
 		if creator != nil {
 			variable.creator = creator
 			variable.isPointer = creator.Results[0].isPointer
-		} else {
-			variable.isPointer = true
 		}
 		res = variable.generateCode(receiverPrefix, file)
 		isVariablePointer = variable.isPointer

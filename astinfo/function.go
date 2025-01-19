@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/ast"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -356,6 +358,10 @@ func (method *Function) GenerateServlet(file *GenedFile, receiverPrefix string) 
 			realParams += ",c.Request"
 			rawServlet = true
 		} else {
+			if !requestParam.isPointer {
+				fmt.Print("only pointer is supported in " + strconv.Itoa(paramIndex) + " parameter(start from 0) for method " + method.Name)
+				os.Exit(0)
+			}
 			variableCode = "request:=" + requestParam.generateCode(receiverPrefix, file) + "\n"
 			sb.WriteString(variableCode)
 			sb.WriteString(`
