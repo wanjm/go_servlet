@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "main.go",
-            "args": ["-p","/Users/wanjm/myfile/git/yxt_server/resource-ai-convert"]
+            "args": ["-p","/Users/wan/git/yxt_server/resource-ai-convert"]
             // "args": ["-p","./example"]
         }
     ]
