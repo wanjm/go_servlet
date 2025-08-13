@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"path"
 	"strings"
 )
 
 type Gosourse struct {
-	Path    string
-	Pkg     *Package
-	File    *ast.File
+	Path string
+	Pkg  *Package
+	File *ast.File
+	// import a "github.com/abc"
+	// key = a ; value = github.com/abc
 	Imports map[string]string //key package name,value是包路径；
+	// key=github.com/abc; value=a
+	NoNameImport map[string]string //key 是module，value是包名；
 }
-
-var knownowType = map[string]bool{}
 
 // parseType
 func (g *Gosourse) parseType(typeSpec *ast.TypeSpec) {
@@ -30,6 +33,18 @@ func (g *Gosourse) parseType(typeSpec *ast.TypeSpec) {
 		alias := NewAlias(typeSpec, g, typeSpec.Assign != 0)
 		g.Pkg.AddParser(alias)
 	}
+}
+
+// FindPackage 查找package
+func (g *Gosourse) FindPackage(name string) *Package {
+	module := g.Imports[name]
+	if module == "" {
+		for _, module := range g.NoNameImport {
+			pkg := GlobalProject.FindPackage(module)
+			g.Imports[pkg.Name] = module
+		}
+	}
+	return GlobalProject.FindPackage(module)
 }
 
 // 解析全局变量和 struct，interface
@@ -79,8 +94,7 @@ func (g *Gosourse) getType(typeName string, typeMap map[string]*Field) Typer {
 		return type3
 	}
 	// check import .
-	pkgModule := g.Imports["."]
-	pkg := GlobalProject.FindPackage(pkgModule)
+	pkg := g.FindPackage(".")
 	if pkg != nil {
 		type3 = pkg.GetTyper(typeName)
 		if type3 != nil {
@@ -153,10 +167,11 @@ func (g *Gosourse) Parse() error {
 
 func NewGosourse(file *ast.File, pkg *Package, path string) *Gosourse {
 	return &Gosourse{
-		File:    file,
-		Pkg:     pkg,
-		Path:    path,
-		Imports: map[string]string{},
+		File:         file,
+		Pkg:          pkg,
+		Path:         path,
+		Imports:      map[string]string{},
+		NoNameImport: map[string]string{},
 	}
 }
 
@@ -174,9 +189,16 @@ func (goFile *Gosourse) parseImport(imports []*ast.ImportSpec) {
 		if importSpec.Name != nil {
 			name = importSpec.Name.Name
 		} else {
+			name = path.Base(pathValue)
+			// 临时用base代替，仅有小部分不是baseName，等到查不到的时候再查找；
+			// 只有name不存在时，才临时使用；避免错误覆盖；
+			goFile.NoNameImport[pathValue] = name
+			if _, ok := goFile.Imports[name]; ok {
+				continue
+			}
 			// 如果没有带名字，则从Package中寻找，此处是否可能该Package还没有被解析呢？
-			pkg := GlobalProject.FindPackage(pathValue)
-			name = pkg.GetName()
+			// pkg := GlobalProject.FindPackage(pathValue)
+			// name = pkg.GetName()
 		}
 		// pkg := goFile.pkg.Project.getPackage(pathValue, true)
 		// 此处是第三方package，也可能是本项目的尚未被解析的工程，其modeName为空，先补一个；

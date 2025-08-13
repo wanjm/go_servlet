@@ -100,6 +100,7 @@ func (pkg *Package) Parse() error {
 	if pkg.finshedParse {
 		return nil
 	}
+	fmt.Printf("parse package %s\n", pkg.Module)
 	pkg.finshedParse = true
 	for filename, f := range pkg.Files {
 		if strings.HasSuffix(filename, "_test.go") {

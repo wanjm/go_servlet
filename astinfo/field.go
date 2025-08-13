@@ -128,9 +128,8 @@ func parseType(fieldType ast.Expr, goSource *Gosourse, typeMap map[string]*Field
 		typeName := fieldType.Sel.Name
 		// 解析import时，已经跳过了import C；
 		// 但是解析Field时，还有可能是C，所以也要跳过；
-		pkgModePath := goSource.Imports[pkgName]
 		if pkgName != "C" {
-			resultType = GlobalProject.FindPackage(pkgModePath).GetTyper(typeName)
+			resultType = goSource.FindPackage(pkgName).GetTyper(typeName)
 		}
 	case *ast.MapType:
 		mapType := MapType{}
