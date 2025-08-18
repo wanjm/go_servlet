@@ -443,7 +443,7 @@ func (mp *MainProject) GenerateCode() error {
 	}
 	mp.genProjectCode()
 
-	NewSwagger(mp).GenerateCode(&mp.Cfg.SwaggerCfg)
+	//NewSwagger(mp).GenerateCode(&mp.Cfg.SwaggerCfg)
 	return nil
 }
 func escapeModulePath(s string) string {

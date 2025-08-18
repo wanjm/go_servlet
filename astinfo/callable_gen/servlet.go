@@ -234,7 +234,7 @@ func (servlet *ServletGen) GenRouterCode(method *astinfo.Method, file *astinfo.G
 	}
 	if len(method.Results) > 1 {
 		tm.HasResponse = true
-		tm.ResponseNilCode = method.Results[0].GenNilCode(file)
+		// tm.ResponseNilCode = method.Results[0].GenNilCode(file)
 	}
 
 	//获取可能存在的url中的参数
