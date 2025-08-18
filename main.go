@@ -39,7 +39,12 @@ func main() {
 		InitMain: modName, // 直接赋值模块名称
 	}
 	cfg.Load()
-	astinfo.RegisterCallableGen(callable_gen.NewServletGen(4, 1), &callable_gen.PrpcGen{}, &callable_gen.ResutfulGen{})
+	astinfo.RegisterCallableGen(
+		callable_gen.NewServletGen(4, 1),
+		&callable_gen.PrpcGen{},
+		&callable_gen.ResutfulGen{},
+		&callable_gen.RawGen{},
+	)
 	astinfo.RegisterClientGen(&rpcgen.PrpcGen{})
 	var project = astinfo.CreateProject(path, &cfg)
 

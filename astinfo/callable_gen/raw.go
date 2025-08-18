@@ -32,7 +32,7 @@ func NewRawGen(dataError, internalError int) *RawGen {
 	return servlet
 }
 func (servlet *RawGen) GetName() string {
-	return "servlet"
+	return "raw"
 }
 
 var rawCommonGenerated bool
@@ -119,7 +119,6 @@ func (servlet *RawGen) GenerateCommon(file *astinfo.GenedFile) {
 		data.ImportName = oneImport.Name
 		data.ResponseKey = Project.Cfg.Generation.ResponseKey
 		file.GetImport(astinfo.SimplePackage("context", "context"))
-		file.GetImport(astinfo.SimplePackage("encoding/json", "json"))
 		file.GetImport(astinfo.SimplePackage("net/http", "http"))
 	}
 
@@ -140,13 +139,6 @@ func (servlet *RawGen) GenerateCommon(file *astinfo.GenedFile) {
 // 定义过滤器代码生成模板
 const RawFilterTemplate = `func {{.FilterName}}(c *gin.Context) {
 	res := {{.ImportName}}.{{.FunctionName}}(c, &c.Request)
-	if res.Code != 0 {
-		cJSON(c, 200, Response{
-			Code:    int(res.Code),
-			Message: res.Message,
-		})
-		c.Abort()
-	}
 }
 `
 
@@ -271,22 +263,21 @@ func (servlet *RawGen) GenRouterCode(method *astinfo.Method, file *astinfo.Gened
 		{{.UrlParameterStr}}	
 		// 利用gin的自动绑定功能，将请求内容绑定到request对象上；兼容get,post等情况
 		if err := c.ShouldBind(request); err != nil {
-			cJSON(c, 200, Response{
-				Code:    {{.DataError}},
-				Message: "param error",
-			})
-			return
 		}
 		{{ end }}
 		{{ if .HasResponse }}a,{{end}} err := receiver.{{.MethodName}}(c {{ if .HasRequest }},request{{ end }})
-		{{.ResponseNilCode}}
-		var code = 200
 		errorCode,errMessage:=getErrorCode(err)
-		cJSON(c, code, Response{
-			{{ if .HasResponse }}Object:  a,{{ end }}
-			Code:    errorCode,
-			Message: errMessage,
-		})
+		if errorCode==0{
+			errorCode=200
+		}
+		c.Writer.WriteHeader(errorCode)
+		if errorCode!=200{
+			c.Writer.Write([]byte(errMessage))
+			return
+		}
+		{{ if .HasResponse }}
+		c.Writer.Write([]byte(a))
+		{{ end }}
 	})
 		`
 
