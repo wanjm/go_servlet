@@ -33,7 +33,9 @@
 23. 完成数据库对象的生成/函数的生成
 24. 完成FromEntity的定义；(包含list)
 25. 完成mongo的代码生成；
-26. 
+26. 同一个类可以完成不同的servlet；
+27. 添加websocket的写法；
+28.  
 ## 暂时不解析：
 ```
 type Pointer[T any] struct {

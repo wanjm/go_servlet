@@ -1,3 +1,8 @@
+
+# content
+1. [Go Web 开发提速：基于 Spring 式注释方案，用 gos 自动生成运行代码https://zhuanlan.zhihu.com/p/1937905040842004437](https://zhuanlan.zhihu.com/p/1937905040842004437)
+2. [Go Web 开发提速(gos)：Servlet 注解与参数解析全指南 —— 从定义到落地](https://zhuanlan.zhihu.com/p/1937994788919019061)
+3. [Go Web 开发提速 3（gos）：Filter 实战与变量注入 —— 通用逻辑复用与依赖解耦](https://zhuanlan.zhihu.com/p/1942992392115446822)
 # 准备
 1. 我需要设计一个扫描go语言代码，解析出其中关于servlet的定义部分，然后自动跟gin的对接代码，完成端口监听并根据url调用servlet的功能。
 2. 当定义一个函数 如下格式时，自动生成/hello的servet代码；并将请求解析为schema.HelloRequest类型，返回schema.HelloResponse类型。
