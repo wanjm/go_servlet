@@ -222,6 +222,10 @@ func (servlet *RawGen) GenRouterCode(method *astinfo.Method, file *astinfo.Gened
 			os.Exit(0)
 		}
 		tm.HasRequest = true
+		if requestParam.Name == "" {
+			//有时开发时写了个空函数，就开始生成代码，此处会报错，但是这个名字也不重要；就先补上；
+			requestParam.Name = "request"
+		}
 		tm.RequestConstruct = requestParam.GenVariableCode(file, false)
 	}
 	if len(method.Results) > 1 {
